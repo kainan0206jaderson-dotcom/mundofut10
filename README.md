@@ -8,3 +8,5 @@ Funciona no computador e no celular; no celular pode ser instalado como app ("Ad
 Criador: vulgo **SucodeFrutas**.
 
 Site estático (HTML, CSS e JavaScript + Three.js). Publicado pelo GitHub Pages a partir da branch `main`.
+
+Versão para computador e celular (PWA instalável).
