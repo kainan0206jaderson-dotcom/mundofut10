@@ -41,6 +41,8 @@
     document.querySelectorAll('[data-reset]').forEach((el) => (el.textContent = MF.fmtCountdown(ms)));
     if (ms <= 0) location.reload();
   }
+  // cabeçalho ganha fundo sólido ao rolar (no celular a lista passa por baixo dele)
+  if (!MF._scrollHook) { MF._scrollHook = true; addEventListener('scroll', () => { const t = document.querySelector('.top'); if (t) t.classList.toggle('scrolled', scrollY > 24); }, { passive: true }); }
   clearInterval(MF._cdIv);
   MF._cdIv = setInterval(tick, 1000);
   function header() {
