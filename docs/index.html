@@ -433,6 +433,12 @@ input, textarea { caret-color: var(--yellow); }
 .draft-step { font-family: var(--f-num); font-weight: 700; color: var(--mute); }
 .draft-club { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--yellow); }
 .draft-club strong { font-family: var(--f-display); font-size: 28px; font-weight: 800; line-height: 1; }
+.draft-club-txt { display: grid; gap: 4px; min-width: 0; }
+.draft-league { font-family: var(--f-num); font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--yellow); }
+.skip-club:disabled { opacity: .5; cursor: default; }
+@media (max-width: 560px) { .draft-side .ac { flex-wrap: wrap; } .draft-side .ac-input { flex: 1 1 100%; } .draft-side .ac .skip-club { flex: 1; } }
+.loading-inline { padding: 40px 0; text-align: center; color: var(--mute); font-family: var(--f-num); font-size: 18px; }
+.loading-inline.err { color: var(--bad); }
 .br-slot { cursor: pointer; width: 22%; }
 .br-slot.active { border: 2px solid var(--yellow); box-shadow: 0 0 0 4px rgba(255,212,0,.2); z-index: 2; }
 .br-slot.ok { background: var(--ok); color: var(--ink); border-color: var(--ok); }

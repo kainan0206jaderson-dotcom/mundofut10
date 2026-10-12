@@ -1,6 +1,6 @@
-/* MUNDOFUT10 — cache para abrir rápido e funcionar offline. Versão efe98b7482 */
-const CACHE = 'mf10-efe98b7482';
-const PRECACHE = ["./", "index.html", "data/db.json", "data/flags.json", "data/games.json", "favicon.png", "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "js/app.js", "js/core.js", "js/games/g01.js", "js/games/g02.js", "js/games/g03.js", "js/games/g04.js", "js/games/g05.js", "js/games/g06.js", "js/games/g07.js", "js/games/g08.js", "js/games/g09.js", "js/games/g10.js", "js/games/g11.js", "js/i18n.js", "js/stadium.js", "js/ui.js", "manifest.webmanifest", "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"];
+/* MUNDOFUT10 — cache para abrir rápido e funcionar offline. Versão 837378736c */
+const CACHE = 'mf10-837378736c';
+const PRECACHE = ["./", "index.html", "data/db.json", "data/draft.json", "data/flags.json", "data/games.json", "favicon.png", "icons/apple-touch-icon.png", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "js/app.js", "js/core.js", "js/games/g01.js", "js/games/g02.js", "js/games/g03.js", "js/games/g04.js", "js/games/g05.js", "js/games/g06.js", "js/games/g07.js", "js/games/g08.js", "js/games/g09.js", "js/games/g10.js", "js/games/g11.js", "js/i18n.js", "js/stadium.js", "js/ui.js", "manifest.webmanifest", "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => Promise.all(PRECACHE.map((u) => c.add(u).catch(() => null)))).then(() => self.skipWaiting()));
 });

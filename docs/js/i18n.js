@@ -109,7 +109,7 @@
       tries: 'tentativas',
       daysPlayed: 'dias jogados',
       letters: 'letras',
-      brasiliaTime: 'Horário de Brasília', creditBy: 'criador vulgo', todayGames: 'Os 11 desafios de hoje', skipToGames: 'Pular para os desafios', dayNow: 'Dia em Brasília', nightNow: 'Noite em Brasília', statusWon: 'Acertou', statusLost: 'Errou', fiveChances: '5 chances', freeAnswers: 'Respostas livres', skipIntro: 'Pular abertura', chancesLeft: 'Chances', misses: 'Erros', missesWord: 'erros',
+      brasiliaTime: 'Horário de Brasília', creditBy: 'criador vulgo', todayGames: 'Os 11 desafios de hoje', skipClub: 'Pular clube', skipUsed: 'Pulo usado', skipDone: 'Clube pulado. Esse era o seu único pulo.', notInSquad: '{p} não está no elenco 2026/27 do {c}.', leaguesUsed: 'Ligas', skipToGames: 'Pular para os desafios', dayNow: 'Dia em Brasília', nightNow: 'Noite em Brasília', statusWon: 'Acertou', statusLost: 'Errou', fiveChances: '5 chances', freeAnswers: 'Respostas livres', skipIntro: 'Pular abertura', chancesLeft: 'Chances', misses: 'Erros', missesWord: 'erros',
     },
     en: {
       tagline: 'Eleven football challenges a day. Everything resets at 6am (Brasília).',
@@ -135,7 +135,7 @@
       loadError: 'Could not load game data. Reload the page.', cells: 'squares', guessesLeft: 'guesses left', closest: 'Closest',
       sameNat: 'same nation', sameClub: 'shared a club', teammates: 'were teammates', samePos: 'same position', sameLeague: 'same league',
       sameEra: 'same generation', hint: 'Hint', revealed: 'Revealed', select: 'Select', selected: 'selected',
-      impostorHit: "Impostor! That one doesn't belong.", found: 'Found', formation: 'Formation', tries: 'tries', daysPlayed: 'days played', letters: 'letters', brasiliaTime: 'Brasília time', creditBy: 'creator, a.k.a.', todayGames: "Today's 11 challenges", skipToGames: 'Skip to challenges', dayNow: 'Daytime in Brasília', nightNow: 'Night in Brasília', statusWon: 'Won', statusLost: 'Lost', fiveChances: '5 chances', freeAnswers: 'Unlimited answers', skipIntro: 'Skip intro', chancesLeft: 'Chances', misses: 'Misses', missesWord: 'misses',
+      impostorHit: "Impostor! That one doesn't belong.", found: 'Found', formation: 'Formation', tries: 'tries', daysPlayed: 'days played', letters: 'letters', brasiliaTime: 'Brasília time', creditBy: 'creator, a.k.a.', todayGames: "Today's 11 challenges", skipClub: 'Skip club', skipUsed: 'Skip used', skipDone: 'Club skipped. That was your only skip.', notInSquad: "{p} isn't in {c}'s 2026/27 squad.", leaguesUsed: 'Leagues', skipToGames: 'Skip to challenges', dayNow: 'Daytime in Brasília', nightNow: 'Night in Brasília', statusWon: 'Won', statusLost: 'Lost', fiveChances: '5 chances', freeAnswers: 'Unlimited answers', skipIntro: 'Skip intro', chancesLeft: 'Chances', misses: 'Misses', missesWord: 'misses',
     },
     es: {
       tagline: 'Once desafíos de fútbol al día. Todo se renueva a las 6h (Brasilia).',
@@ -161,7 +161,7 @@
       loadError: 'No se pudieron cargar los datos. Recarga la página.', cells: 'casillas', guessesLeft: 'intentos restantes', closest: 'Más cerca',
       sameNat: 'misma selección', sameClub: 'compartieron club', teammates: 'fueron compañeros', samePos: 'misma posición', sameLeague: 'misma liga',
       sameEra: 'misma generación', hint: 'Pista', revealed: 'Revelado', select: 'Selecciona', selected: 'seleccionados',
-      impostorHit: '¡Impostor! Ese no pertenece a la categoría.', found: 'Encontrados', formation: 'Formación', tries: 'intentos', daysPlayed: 'días jugados', letters: 'letras', brasiliaTime: 'Hora de Brasilia', creditBy: 'creador, alias', todayGames: 'Los 11 desafíos de hoy', skipToGames: 'Saltar a los desafíos', dayNow: 'Día en Brasilia', nightNow: 'Noche en Brasilia', statusWon: 'Acertó', statusLost: 'Falló', fiveChances: '5 oportunidades', freeAnswers: 'Respuestas libres', skipIntro: 'Saltar intro', chancesLeft: 'Oportunidades', misses: 'Errores', missesWord: 'errores',
+      impostorHit: '¡Impostor! Ese no pertenece a la categoría.', found: 'Encontrados', formation: 'Formación', tries: 'intentos', daysPlayed: 'días jugados', letters: 'letras', brasiliaTime: 'Hora de Brasilia', creditBy: 'creador, alias', todayGames: 'Los 11 desafíos de hoy', skipClub: 'Saltar club', skipUsed: 'Salto usado', skipDone: 'Club saltado. Era tu único salto.', notInSquad: '{p} no está en la plantilla 2026/27 de {c}.', leaguesUsed: 'Ligas', skipToGames: 'Saltar a los desafíos', dayNow: 'Día en Brasilia', nightNow: 'Noche en Brasilia', statusWon: 'Acertó', statusLost: 'Falló', fiveChances: '5 oportunidades', freeAnswers: 'Respuestas libres', skipIntro: 'Saltar intro', chancesLeft: 'Oportunidades', misses: 'Errores', missesWord: 'errores',
     },
   };
 
