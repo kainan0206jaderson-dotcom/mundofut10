@@ -110,7 +110,7 @@
     const p = MF.data.P[pi];
     const clubs = MF.data.clubs;
     return h('div', { class: 'reveal' },
-      MF.silhouette('sil-md'),
+      MF.silhouette('sil-md', p.n, p.nat),
       h('div', null,
         h('p', { class: 'reveal-name' }, MF.flag(p.nat), p.n),
         h('p', { class: 'reveal-sub' }, MF.pos(p.pos) + ' · ' + MF.country(p.nat) + ' · ' + p.born),

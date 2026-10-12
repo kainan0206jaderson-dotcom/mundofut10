@@ -92,7 +92,7 @@
             const pi = st.cells[idx];
             const total = inter(r.set, c.set);
             let content;
-            if (pi != null) content = [h('span', { class: 'g-name' }, P[pi].n), h('span', { class: 'g-rare' }, total + ' ' + t('rarity'))];
+            if (pi != null) content = [MF.photo(P[pi].n, P[pi].nat, 34), h('span', { class: 'g-name' }, P[pi].n), h('span', { class: 'g-rare' }, total + ' ' + t('rarity'))];
             else if (done) {
               const ex = [...r.set].filter((x) => c.set.has(x)).sort((a, b) => P[b].r - P[a].r)[0];
               content = [h('span', { class: 'g-name ghost' }, ex != null ? P[ex].n : '—'), h('span', { class: 'g-rare' }, total + ' ' + t('rarity'))];

@@ -87,7 +87,7 @@
             return h('button', {
               type: 'button', class: 'pyr-slot' + (it != null ? ' filled' : '') + (sel === k ? ' sel' : '') + (done ? (right ? ' ok' : ' bad') : '') + (pop === k ? ' pop' : ''),
               disabled: done, 'aria-label': (k + 1) + 'º ' + (it != null ? items[it].n : ''), onclick: () => tap(k),
-            }, h('span', { class: 'pyr-k' }, k + 1), it != null ? h('span', { class: 'pyr-name' }, items[it].n) : null,
+            }, h('span', { class: 'pyr-k' }, k + 1), it != null ? h('span', { class: 'pyr-name' }, MF.photo(items[it].n, '', 24), items[it].n) : null,
               done && it != null ? h('span', { class: 'pyr-val' }, fmt(items[it].v)) : null);
           })));
         });
@@ -95,7 +95,7 @@
         const c = current();
         if (!done && c != null) {
           next.appendChild(h('span', { class: 'pyr-label' }, t('next')));
-          next.appendChild(h('strong', { class: 'pyr-card pop' }, items[c].n));
+          next.appendChild(h('strong', { class: 'pyr-card pop' }, MF.photo(items[c].n, '', 40), items[c].n));
           if (st.opts.mode === 'easy') next.appendChild(h('span', { class: 'pill' }, t('tier') + ' ' + (tierOf(c) + 1)));
         }
         if (done) {

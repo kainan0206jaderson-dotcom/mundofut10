@@ -80,7 +80,7 @@
           style: it.coach ? null : { left: it.x + '%', top: it.y + '%' }, disabled: r != null || done,
           'aria-label': (it.coach ? t('coach') : it.pos) + ' ' + it.name + ' ' + per(it.a, it.b), onclick: () => { active = k; paint(); ac.focus && ac.focus(); },
         }, h('span', { class: 'slot-pos' }, it.coach ? 'TEC' : it.pos),
-          h('span', { class: 'slot-name' }, it.name), h('span', { class: 'slot-per' }, per(it.a, it.b)),
+          showClub ? MF.photo(it.name, clubs[it.club].n, 22) : null, h('span', { class: 'slot-name' }, it.name), h('span', { class: 'slot-per' }, per(it.a, it.b)),
           showClub ? h('span', { class: 'slot-club' }, MF.crest(clubs[it.club].n, 14), clubs[it.club].n) : null);
       }
       function paint(pop) {

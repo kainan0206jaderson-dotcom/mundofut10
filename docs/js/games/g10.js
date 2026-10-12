@@ -136,7 +136,7 @@
           type: 'button', class: 'slot' + (pi != null ? ' filled' : '') + (can ? ' choose' : '') + (pop === k ? ' pop' : ''), style: { left: s.x + '%', top: s.y + '%' },
           disabled: !can, 'aria-label': MF.slotName(s.k) + (pi != null ? ' ' + P[pi].n : ''), onclick: () => can && place(k),
         }, h('span', { class: 'slot-pos' }, MF.slotName(s.k)),
-          pi != null ? [h('span', { class: 'slot-r' }, P[pi].r), h('span', { class: 'slot-name' }, P[pi].n), MF.crest(clubs[st.from[k]].n, 14)] : null));
+          pi != null ? [MF.photo(P[pi].full || P[pi].n, clubs[P[pi].c].n, 26), h('span', { class: 'slot-r' }, P[pi].r), h('span', { class: 'slot-name' }, P[pi].n), MF.crest(clubs[st.from[k]].n, 14)] : null));
       });
       MF.clear(now);
       if (!done && st.step < 11) {

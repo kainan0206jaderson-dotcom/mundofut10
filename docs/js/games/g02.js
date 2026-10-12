@@ -57,7 +57,7 @@
           list.appendChild(h('li', { class: 'bo-row' + (ok ? ' ok' : show ? ' missed' : '') + (hit === i ? ' pop' : '') },
             h('span', { class: 'bo-rank' }, r[0] + 'º'),
             MF.flag(r[2]),
-            h('span', { class: 'bo-name' }, show ? r[1] : ' '),
+            h('span', { class: 'bo-name' }, show ? [MF.photo(r[1], '', 26), r[1]] : ' '),
             h('span', { class: 'bo-club' }, show ? [MF.crest(r[3], 16), r[3]] : ''),
             hasPts ? h('span', { class: 'bo-pts' }, show && r[4] != null ? (pct ? r[4].toFixed(2) + '%' : r[4] + ' pts') : '') : null));
         });

@@ -73,7 +73,7 @@
           wrap.appendChild(h('button', {
             type: 'button', class: cls, style: { '--x': (50 + 41 * Math.cos(ang)).toFixed(2) + '%', '--y': (50 + 41 * Math.sin(ang)).toFixed(2) + '%' },
             'aria-pressed': on ? 'true' : 'false', disabled: done || (one && on), onclick: () => tap(i),
-          }, h('span', null, p.n)));
+          }, (done || on) ? MF.photo(p.n, p.nat, 30) : null, h('span', null, p.n)));
         });
         counter.textContent = st.sel.length + ' ' + t('selected');
         confirm.hidden = one || done;

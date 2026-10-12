@@ -74,11 +74,11 @@
           const on = i < st.shown || done;
           const p = P[l.q];
           row.appendChild(h('li', { class: 'link-card' + (on ? ' on' : '') + (pop === i ? ' flip' : '') },
-            on ? [MF.silhouette('sil-sm'), h('span', { class: 'link-name' }, p.n), h('span', { class: 'link-sub' }, MF.flag(p.nat), MF.pos(p.pos)),
+            on ? [MF.silhouette('sil-sm', p.n, p.nat), h('span', { class: 'link-name' }, p.n), h('span', { class: 'link-sub' }, MF.flag(p.nat), MF.pos(p.pos)),
               done ? h('span', { class: 'link-club' }, MF.crest(clubs[l.club].n, 16), clubs[l.club].n) : null]
               : h('span', { class: 'link-q' }, i + 1)));
         });
-        row.appendChild(h('li', { class: 'link-card mystery' + (done ? ' on' : '') }, done ? [MF.silhouette('sil-sm'), h('span', { class: 'link-name' }, P[pi].n)] : h('span', { class: 'link-q' }, '?')));
+        row.appendChild(h('li', { class: 'link-card mystery' + (done ? ' on' : '') }, done ? [MF.silhouette('sil-sm', P[pi].n, P[pi].nat), h('span', { class: 'link-name' }, P[pi].n)] : h('span', { class: 'link-q' }, '?')));
         MF.clear(guesses);
         st.guesses.forEach((g) => guesses.appendChild(h('li', { class: g === pi ? 'hit' : 'miss' }, P[g].n)));
         left.textContent = t('chancesLeft') + ': ' + (MAX - misses()) + '/' + MAX;

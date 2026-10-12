@@ -27,7 +27,7 @@
       h('div', { class: 'fc-shine', 'aria-hidden': 'true' }),
       h('div', { class: 'fc-top' },
         h('div', { class: 'fc-ovr' }, h('strong', null, ovr), h('span', null, MF.pos(pos)), MF.flag(p.nat), MF.crest(club, 22)),
-        MF.silhouette('fc-sil')),
+        MF.silhouette('fc-sil', p.n, p.nat)),
       h('div', { class: 'fc-name' }, name),
       h('div', { class: 'fc-stats' }, stats.map((s, i) => h('span', null, h('b', null, s), ' ' + lab[i]))),
       h('div', { class: 'fc-ed' }, MF.edition(ver)));

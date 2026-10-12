@@ -87,15 +87,84 @@
     const txt = MF.contrastOn(a);
     const span = h('span', { class: 'crest', style: { width: size + 'px', height: size * 1.15 + 'px' }, title: clubName, 'aria-hidden': 'true' });
     span.innerHTML = `<svg viewBox="0 0 40 46" width="${size}" height="${size * 1.15}"><path d="M20 1 L38 7 V22 C38 34 30 41 20 45 C10 41 2 34 2 22 V7 Z" fill="${a}" stroke="${b}" stroke-width="2.5"/><path d="M2 22 H38" stroke="${b}" stroke-width="0" /><text x="20" y="27" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="${ini.length > 2 ? 11 : 14}" fill="${txt}">${ini}</text></svg>`;
+    // escudo real (Wikimedia Commons via Wikidata), quando existir
+    if (MF.media && clubName) MF.media.club(clubName).then((url) => { if (url) MF.media.swapImg(span, url, clubName, 'crest-img'); });
     return span;
   };
 
   // silhueta de jogador (sem fotos reais)
-  MF.silhouette = (cls) => {
+  MF.silhouette = (cls, name, hint) => {
     const s = h('span', { class: 'sil ' + (cls || ''), 'aria-hidden': 'true' });
     s.innerHTML = '<svg viewBox="0 0 100 110"><circle cx="50" cy="32" r="20"/><path d="M12 108 C14 74 30 60 50 60 C70 60 86 74 88 108 Z"/></svg>';
+    if (name && MF.media) MF.media.player(name, hint).then((url) => { if (url) MF.media.swapImg(s, url, name, 'sil-photo'); });
     return s;
   };
+  // avatar redondo de jogador (foto livre da Wikipedia; silhueta enquanto carrega ou se não houver foto)
+  MF.photo = (name, hint, size) => {
+    const s = h('span', { class: 'pph', style: { '--ph': (size || 32) + 'px' }, 'aria-hidden': 'true' });
+    s.innerHTML = '<svg viewBox="0 0 100 100"><circle cx="50" cy="38" r="19"/><path d="M14 100 C16 72 31 60 50 60 C69 60 84 72 86 100 Z"/></svg>';
+    if (name && MF.media) MF.media.player(name, hint).then((url) => { if (url) MF.media.swapImg(s, url, '', 'pph-img'); });
+    return s;
+  };
+
+  // ------------------------------------------------------------------ imagens livres (Wikipedia / Wikimedia Commons)
+  // Busca no navegador, 4 por vez, com cache no aparelho. Só imagens de licença livre (pilicense=free) e logos do Wikidata.
+  (function () {
+    const V = 'mf10:img1:';
+    const memo = new Map(), queue = [];
+    let active = 0;
+    const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+    const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+    const pump = () => { while (active < 4 && queue.length) { const [fn, res] = queue.shift(); active++; fn().then(res, () => res(undefined)).finally(() => { active--; pump(); }); } };
+    const run = (fn) => new Promise((res) => { queue.push([fn, res]); pump(); });
+    const getJSON = (u) => fetch(u, { mode: 'cors' }).then((r) => (r.ok ? r.json() : null));
+    const search = (host, q, thumb) => getJSON('https://' + host + '/w/api.php?origin=*&format=json&formatversion=2&action=query&generator=search&gsrlimit=4&gsrnamespace=0&gsrsearch=' +
+      encodeURIComponent(q) + '&prop=pageimages|pageprops&piprop=thumbnail&pithumbsize=' + thumb + '&pilicense=free&ppprop=wikibase_item')
+      .then((j) => ((j && j.query && j.query.pages) || []).sort((a, b) => a.index - b.index));
+    const toks = (s) => MF.norm(s).split(' ').filter((x) => x.length > 2 && !['club', 'clube', 'futebol', 'football', 'fc', 'the'].includes(x));
+    const matches = (title, name) => { const tn = MF.norm(title); const tk = toks(name); return !tk.length || tk.some((x) => tn.includes(x)); };
+    function lookup(kind, key, fn) {
+      const k = V + kind + ':' + key;
+      if (memo.has(k)) return memo.get(k);
+      const cached = lsGet(k);
+      const p = cached !== null ? Promise.resolve(cached || null) : run(fn).then((url) => { if (url !== undefined) lsSet(k, url || ''); return url || null; });
+      memo.set(k, p);
+      return p;
+    }
+    MF.media = {
+      player(name, hint) {
+        if (!name || typeof fetch !== 'function') return Promise.resolve(null);
+        return lookup('p', MF.norm(name + '|' + (hint || '')), async () => {
+          const pages = await search('en.wikipedia.org', name + ' footballer' + (hint ? ' ' + hint : ''), 240);
+          let pg = pages.find((x) => matches(x.title, name));
+          if (!pg && hint) { const p2 = await search('en.wikipedia.org', name + ' footballer', 240); pg = p2.find((x) => matches(x.title, name)); }
+          return pg && pg.thumbnail ? pg.thumbnail.source : null;
+        });
+      },
+      club(name) {
+        if (!name || typeof fetch !== 'function') return Promise.resolve(null);
+        return lookup('c', MF.norm(name), async () => {
+          const pages = await search('pt.wikipedia.org', name + ' futebol clube', 64);
+          for (const pg of pages.slice(0, 3)) {
+            const q = pg.pageprops && pg.pageprops.wikibase_item;
+            if (!q || !matches(pg.title, name)) continue;
+            const j = await getJSON('https://www.wikidata.org/w/api.php?origin=*&format=json&action=wbgetentities&props=claims&ids=' + q);
+            const cl = j && j.entities && j.entities[q] && j.entities[q].claims;
+            const logo = cl && cl.P154 && cl.P154[0] && cl.P154[0].mainsnak.datavalue && cl.P154[0].mainsnak.datavalue.value;
+            if (logo) return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(logo) + '?width=96';
+          }
+          return null;
+        });
+      },
+      // troca o conteúdo pelo <img> só depois que a imagem carregou (sem piscar nem quebrar)
+      swapImg(el, url, alt, cls) {
+        const img = new Image();
+        img.decoding = 'async'; img.alt = alt || ''; img.className = cls || ''; img.referrerPolicy = 'no-referrer';
+        img.onload = () => { MF.clear(el); el.appendChild(img); el.classList.add('has-img'); };
+        img.src = url;
+      },
+    };
+  })();
 
   // ------------------------------------------------------------------ toasts e modal
   let toastEl;

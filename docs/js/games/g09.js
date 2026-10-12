@@ -46,7 +46,7 @@
         const scored = st.guesses.map((g) => ({ g, ...MF.similarity(target, P[g], tm) })).sort((a, b) => b.s - a.s);
         scored.forEach(({ g, s, why }) => list.appendChild(h('li', { class: 'dist ' + heat(s) + (g === last ? ' pop' : '') },
           h('span', { class: 'dist-bar', style: { width: Math.max(4, (s + 100) / 2) + '%' }, 'aria-hidden': 'true' }),
-          h('span', { class: 'dist-name' }, MF.flag(P[g].nat), P[g].n),
+          h('span', { class: 'dist-name' }, MF.photo(P[g].n, P[g].nat, 28), MF.flag(P[g].nat), P[g].n),
           h('span', { class: 'dist-why' }, why.map((w) => t(w)).join(' · ')),
           h('strong', { class: 'dist-s' }, s))));
         left.textContent = t('attempts') + ': ' + st.guesses.length;
