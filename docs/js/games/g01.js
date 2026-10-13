@@ -6,12 +6,12 @@
   MF.registerGame({
     num: 1, slug: 'quem-e-craque', chances: 5,
     rules: {
-      pt: ['Você recebe a temporada e a liga de um jogador misterioso.', 'Palpite um nome ou pule: cada palpite errado ou pulo revela mais duas pistas (jogos, gols, assistências, clube, seleção, posição, idade e camisa).', 'Você tem 5 chances de resposta. Pular não gasta chance. No 5º erro, o desafio termina como errado.', 'No modo difícil, as pistas de clube e seleção ficam bloqueadas.'],
-      en: ['You get the season and league of a mystery player.', 'Guess or skip: each wrong guess or skip reveals two more clues (apps, goals, assists, club, nation, position, age and shirt).', 'You have 5 answer chances. Skipping is free. On the 5th miss the challenge ends as lost.', 'In hard mode, the club and nation clues stay locked.'],
-      es: ['Recibes la temporada y la liga de un jugador misterioso.', 'Adivina o salta: cada fallo o salto revela dos pistas más (partidos, goles, asistencias, club, selección, posición, edad y dorsal).', 'Tienes 5 oportunidades de respuesta. Saltar no gasta oportunidad. Al 5.º fallo, el desafío termina como perdido.', 'En modo difícil, las pistas de club y selección quedan bloqueadas.'],
+      pt: ['Você recebe a temporada e a liga de um jogador misterioso.', 'Palpite um nome ou pule: cada palpite errado ou pulo revela mais duas pistas (jogos, gols, assistências, clube, seleção, posição, idade e camisa).', 'Você tem 5 chances de resposta. Pular não gasta chance. No 5º erro, o desafio termina como errado.', 'Dificuldade — Fácil: começa com clube e seleção já revelados. Normal: pistas em ordem aleatória, duas por vez. Difícil: clube e seleção bloqueados. Lendário: clube, seleção e camisa bloqueados, e só uma pista nova por vez.'],
+      en: ['You get the season and league of a mystery player.', 'Guess or skip: each wrong guess or skip reveals two more clues (apps, goals, assists, club, nation, position, age and shirt).', 'You have 5 answer chances. Skipping is free. On the 5th miss the challenge ends as lost.', 'Difficulty — Easy: starts with club and nation already shown. Normal: clues in random order, two at a time. Hard: club and nation locked. Legendary: club, nation and shirt locked, and only one new clue at a time.'],
+      es: ['Recibes la temporada y la liga de un jugador misterioso.', 'Adivina o salta: cada fallo o salto revela dos pistas más (partidos, goles, asistencias, club, selección, posición, edad y dorsal).', 'Tienes 5 oportunidades de respuesta. Saltar no gasta oportunidad. Al 5.º fallo, el desafío termina como perdido.', 'Dificultad — Fácil: empieza con club y selección ya revelados. Normal: pistas en orden aleatorio, de dos en dos. Difícil: club y selección bloqueados. Legendario: club, selección y dorsal bloqueados, y solo una pista nueva cada vez.'],
     },
     options: [
-      { key: 'mode', label: () => t('mode'), def: 'normal', choices: () => [{ v: 'normal', label: t('normal') }, { v: 'hard', label: t('hard') }] },
+      MF.levelOpt(),
       MF.timerOpt([0, 120, 60]),
     ],
     preview() {
@@ -24,7 +24,9 @@
       const [pi, season, league, club, apps, goals, ast, age, pos, num] = row;
       const target = P[pi];
       const st = ctx.state;
-      const hard = st.opts.mode === 'hard';
+      const lvl = MF.level(st);
+      const LOCK = lvl === 'legend' ? ['club', 'nat', 'shirt'] : lvl === 'hard' ? ['club', 'nat'] : [];
+      const STEP = lvl === 'legend' ? 1 : 2;
       st.guesses = st.guesses || [];
       st.rev = st.rev || 0;
 
@@ -33,9 +35,12 @@
         ['club', t('club'), club, 'club'], ['nat', t('nationality'), target.nat, 'nat'], ['pos', t('position'), MF.pos(pos)],
         ['age', t('age'), age], ['shirt', t('shirt'), num],
       ].filter(Boolean);
-      const order = MF.shuffle(all, MF.rng('g1-ordem:' + MF.today()));
-      const open = hard ? order.filter((c) => c[0] !== 'club' && c[0] !== 'nat') : order;
-      const locked = hard ? order.filter((c) => c[0] === 'club' || c[0] === 'nat') : [];
+      let order = MF.shuffle(all, MF.rng('g1-ordem:' + MF.today()));
+      // fácil: clube e seleção vêm primeiro e já abertos
+      if (lvl === 'easy') order = [...order.filter((c) => c[0] === 'club' || c[0] === 'nat'), ...order.filter((c) => c[0] !== 'club' && c[0] !== 'nat')];
+      const open = order.filter((c) => !LOCK.includes(c[0]));
+      const locked = order.filter((c) => LOCK.includes(c[0]));
+      if (lvl === 'easy' && !st.rev) st.rev = 2;
       const MAX = 5;
 
       const tiles = h('div', { class: 'clue-grid' });
@@ -51,7 +56,7 @@
         const done = ctx.finished();
         open.forEach((c, i) => {
           const shown = i < st.rev || done;
-          tiles.appendChild(tile(c, shown, flipLast && shown && i >= st.rev - 2 && !done));
+          tiles.appendChild(tile(c, shown, flipLast && shown && i >= st.rev - STEP && !done));
         });
         locked.forEach((c) => tiles.appendChild(tile(c, done, false, true)));
         MF.clear(guessList);
@@ -80,7 +85,7 @@
           return end(true);
         }
         st.guesses.push(guessIdx == null ? null : guessIdx);
-        st.rev = Math.min(open.length, st.rev + 2);
+        st.rev = Math.min(open.length, st.rev + STEP);
         ctx.save();
         if (guessIdx != null) { MF.toast(t('wrong') + ': ' + P[guessIdx].n, 'bad'); MF.anim(sheet, 'shake'); }
         if (misses() >= MAX) return end(false);

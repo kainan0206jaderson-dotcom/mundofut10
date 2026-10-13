@@ -387,6 +387,14 @@ clockLine()),
       ...[[t('played'), s.played], [t('wins'), s.wins], [t('streak'), s.streak], [t('best'), s.best]].map(([l, v]) => h('div', { class: 'stat' }, h('strong', null, v), h('span', null, l)))));
   }
 
+  // dificuldade padrão dos modos: Fácil (quem não acompanha muito), Normal (padrão), Difícil (quem conhece bem futebol), Lendário (o mais difícil possível)
+  MF.LEVELS = ['easy', 'normal', 'hard', 'legend'];
+  MF.levelOpt = () => ({
+    key: 'mode', label: () => t('mode'), def: 'normal',
+    choices: () => [{ v: 'easy', label: t('easy') }, { v: 'normal', label: t('normal') }, { v: 'hard', label: t('hard') }, { v: 'legend', label: t('legendary') }],
+  });
+  MF.level = (st) => (MF.LEVELS.includes(st.opts.mode) ? st.opts.mode : 'normal');
+
   // opções de tempo padrão
   MF.timerOpt = (choices, def) => ({
     key: 'timer', label: () => t('timer'), def: def == null ? 0 : def,

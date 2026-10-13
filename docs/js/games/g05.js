@@ -51,19 +51,19 @@
   MF.registerGame({
     num: 5, slug: 'futebol-grid',
     rules: {
-      pt: ['Preencha as 9 casas com jogadores que passaram pelo clube da linha e pelo clube ou seleção da coluna.', 'Se o jogador servir em mais de uma casa livre, você escolhe onde colocar; se servir em só uma, ele entra direto.', 'Vale qualquer jogador, da ativa ou aposentado. Palpites livres; cada jogador só entra uma vez. Complete o grid ou toque em Desistir.'],
-      en: ['Fill the 9 squares with players who played for the row club and for the column club or nation.', 'If a player fits more than one open square, you choose; if he fits only one, he goes straight in.', 'Any player counts, current or retired. Unlimited guesses; each player can be used once. Complete the grid or tap Give up.'],
-      es: ['Rellena las 9 casillas con jugadores que pasaron por el club de la fila y por el club o selección de la columna.', 'Si un jugador sirve en más de una casilla libre, eliges dónde; si solo sirve en una, entra directo.', 'Vale cualquier jugador, en activo o retirado. Intentos libres; cada jugador entra una sola vez. Completa la cuadrícula o toca Rendirse.'],
+      pt: ['Preencha as 9 casas com jogadores que passaram pelo clube da linha e pelo clube ou seleção da coluna.', 'Se o jogador servir em mais de uma casa livre, você escolhe onde colocar; se servir em só uma, ele entra direto.', 'Vale qualquer jogador, da ativa ou aposentado. Palpites livres; cada jogador só entra uma vez. Complete o grid ou toque em Desistir.', 'Dificuldade — Fácil: só gigantes da Europa e grandes seleções, com muitas respostas por casa. Normal: clubes conhecidos. Difícil: clubes menores e casas com poucas respostas. Lendário: qualquer clube ou seleção, e casas que podem ter uma única resposta.'],
+      en: ['Fill the 9 squares with players who played for the row club and for the column club or nation.', 'If a player fits more than one open square, you choose; if he fits only one, he goes straight in.', 'Any player counts, current or retired. Unlimited guesses; each player can be used once. Complete the grid or tap Give up.', 'Difficulty — Easy: only European giants and big nations, with many answers per square. Normal: well-known clubs. Hard: smaller clubs and squares with few answers. Legendary: any club or nation, and squares that may have a single answer.'],
+      es: ['Rellena las 9 casillas con jugadores que pasaron por el club de la fila y por el club o selección de la columna.', 'Si un jugador sirve en más de una casilla libre, eliges dónde; si solo sirve en una, entra directo.', 'Vale cualquier jugador, en activo o retirado. Intentos libres; cada jugador entra una sola vez. Completa la cuadrícula o toca Rendirse.', 'Dificultad — Fácil: solo gigantes de Europa y grandes selecciones, con muchas respuestas por casilla. Normal: clubes conocidos. Difícil: clubes más pequeños y casillas con pocas respuestas. Legendario: cualquier club o selección, y casillas que pueden tener una sola respuesta.'],
     },
     options: [
-      { key: 'mode', label: () => t('mode'), def: 'normal', choices: () => [{ v: 'easy', label: t('easy') }, { v: 'normal', label: t('normal') }, { v: 'hard', label: t('hard') }, { v: 'legend', label: t('legend') }] },
+      MF.levelOpt(),
       MF.timerOpt([0, 90, 60, 40]),
     ],
     preview() { return h('div', { class: 'pv-grid' }, Array.from({ length: 9 }, (_, i) => h('b', { class: i % 4 === 0 ? 'on' : '' }))); },
     play(board, ctx) {
       const { P } = MF.data;
       const st = ctx.state;
-      const mode = st.opts.mode || 'normal';
+      const mode = MF.level(st);
       // sequência de grids sem repetição: cada dia percorre uma permutação de 500 grids distintos
       const N = 500;
       const no = MF.daily('g5-grid:' + mode, N);

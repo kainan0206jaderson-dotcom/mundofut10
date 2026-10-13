@@ -1,4 +1,4 @@
-/* Jogo 6 — Pirâmide do atleta (ordenar 10 jogadores numa pirâmide 1-2-3-4) */
+/* Jogo 6 — Pirâmide (ordenar 10 jogadores numa pirâmide 1-2-3-4) */
 (function () {
   'use strict';
   const MF = window.MF, h = MF.h, t = (k) => MF.t(k);
@@ -47,12 +47,12 @@
   MF.registerGame({
     num: 6, slug: 'piramide-do-atleta',
     rules: {
-      pt: ['A categoria do dia aparece no topo (gols, votos da Bola de Ouro, notas do FIFA…).', 'Os 10 jogadores chegam um por vez. Toque numa casa vazia para colocá-lo: o 1º no topo, depois 2, 3 e 4 por fileira, da esquerda para a direita.', 'Para trocar, toque num jogador já colocado e depois na casa de destino. A Ajuda, uma vez por jogo, pinta de verde quem está no lugar certo e de vermelho quem está errado.', 'No modo fácil você vê em qual fileira cada jogador fica. Acertando 7 ou mais, vitória.'],
-      en: ['Today’s category is at the top (goals, Ballon d’Or votes, FIFA ratings…).', 'The 10 players arrive one at a time. Tap an empty spot to place them: 1st at the top, then rows of 2, 3 and 4, left to right.', 'To swap, tap a placed player and then the target spot. Help, once per game, turns players in the right spot green and the wrong ones red.', 'In easy mode you see which row each player belongs to. Get 7 or more right to win.'],
-      es: ['La categoría del día está arriba (goles, votos del Balón de Oro, medias de FIFA…).', 'Los 10 jugadores llegan de uno en uno. Toca una casilla vacía para colocarlo: el 1.º arriba, luego filas de 2, 3 y 4, de izquierda a derecha.', 'Para cambiar, toca un jugador colocado y luego la casilla de destino. La Ayuda, una vez por partida, pinta de verde a los bien colocados y de rojo a los mal colocados.', 'En modo fácil ves en qué fila va cada jugador. Con 7 o más aciertos, ganas.'],
+      pt: ['A categoria do dia aparece no topo (gols, votos da Bola de Ouro, notas do FIFA…).', 'Os 10 jogadores chegam um por vez. Toque numa casa vazia para colocá-lo: o 1º no topo, depois 2, 3 e 4 por fileira, da esquerda para a direita.', 'Para trocar, toque num jogador já colocado e depois na casa de destino. A Ajuda, uma vez por jogo, pinta de verde quem está no lugar certo e de vermelho quem está errado.', 'Dificuldade — Fácil: mostra a fileira de cada jogador e vence com 6 acertos. Normal: vence com 7. Difícil: sem Ajuda, vence com 8. Lendário: sem Ajuda e sem trocas (cada jogador fica onde foi colocado), vence com 8.'],
+      en: ['Today’s category is at the top (goals, Ballon d’Or votes, FIFA ratings…).', 'The 10 players arrive one at a time. Tap an empty spot to place them: 1st at the top, then rows of 2, 3 and 4, left to right.', 'To swap, tap a placed player and then the target spot. Help, once per game, turns players in the right spot green and the wrong ones red.', 'Difficulty — Easy: shows each player’s row; win with 6 right. Normal: win with 7. Hard: no Help; win with 8. Legendary: no Help and no swaps (players stay where placed); win with 8.'],
+      es: ['La categoría del día está arriba (goles, votos del Balón de Oro, medias de FIFA…).', 'Los 10 jugadores llegan de uno en uno. Toca una casilla vacía para colocarlo: el 1.º arriba, luego filas de 2, 3 y 4, de izquierda a derecha.', 'Para cambiar, toca un jugador colocado y luego la casilla de destino. La Ayuda, una vez por partida, pinta de verde a los bien colocados y de rojo a los mal colocados.', 'Dificultad — Fácil: muestra la fila de cada jugador; ganas con 6. Normal: ganas con 7. Difícil: sin Ayuda; ganas con 8. Legendario: sin Ayuda y sin cambios (cada jugador se queda donde lo colocas); ganas con 8.'],
     },
     options: [
-      { key: 'mode', label: () => t('mode'), def: 'normal', choices: () => [{ v: 'easy', label: t('easy') }, { v: 'normal', label: t('normal') }] },
+      MF.levelOpt(),
       MF.timerOpt([0, 120, 60]),
     ],
     preview() { return h('div', { class: 'pv-pyr' }, ROWS.map((r) => h('span', null, r.map(() => h('b'))))); },
@@ -67,6 +67,9 @@
       st.slots = st.slots || Array(10).fill(null);
       st.help = st.help || false;
       let sel = null;
+      const lvl = MF.level(st);
+      const WIN = { easy: 6, normal: 7, hard: 8, legend: 8 }[lvl];
+      const canHelp = lvl === 'easy' || lvl === 'normal';
       const lang = MF.lang;
       const placed = () => st.slots.filter((x) => x != null).length;
       const current = () => queue.find((i) => !st.slots.includes(i));
@@ -99,18 +102,20 @@
         if (!done && c != null) {
           next.appendChild(h('span', { class: 'pyr-label' }, t('next')));
           next.appendChild(h('strong', { class: 'pyr-card pop' }, MF.photo(items[c].n, '', 40), items[c].n));
-          if (st.opts.mode === 'easy') next.appendChild(h('span', { class: 'pill' }, t('tier') + ' ' + (tierOf(c) + 1)));
+          if (lvl === 'easy') next.appendChild(h('span', { class: 'pill' }, t('tier') + ' ' + (tierOf(c) + 1)));
         }
         if (done) {
           next.appendChild(h('ol', { class: 'pyr-answer' }, sorted.map((i, k) => h('li', null, h('b', null, k + 1 + 'º'), ' ' + items[i].n + ' — ' + fmt(items[i].v)))));
         }
         submit.disabled = placed() < 10 || done;
         helpBtn.disabled = st.help || done;
+        helpBtn.hidden = !canHelp;
       }
       const fmt = (v) => (Number.isInteger(v) ? v : v.toFixed(2)) + ' ' + (cat.unit[lang] || cat.unit.pt);
       function tap(k) {
         if (ctx.finished()) return;
         const it = st.slots[k];
+        if (it != null && lvl === 'legend') return MF.toast(t('pyrNoSwap'));
         if (sel != null) {
           if (sel !== k) { const a = st.slots[sel]; st.slots[sel] = st.slots[k]; st.slots[k] = a; ctx.save(); }
           sel = null;
@@ -130,7 +135,7 @@
         const n = correct();
         const line = ROWS.map((r) => r.map((k) => (st.slots[k] != null && items[st.slots[k]].v === rankVal[k] ? '🟩' : '🟥')).join('')).join('\n') + '\n' + n + '/10';
         st.scoreLabel = (cat.title[lang] || cat.title.pt) + ' · ' + n + '/10';
-        ctx.finish(n >= 7, n, line);
+        ctx.finish(n >= WIN, n, line);
         paint();
       }
       ctx.onTimeUp = () => end();
