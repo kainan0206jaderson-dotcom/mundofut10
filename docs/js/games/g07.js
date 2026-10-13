@@ -1,12 +1,14 @@
 /* Jogo 7 — Bingo FUT10 (no estilo Futbol11 Bingo)
-   Uma cartela 4×3 com 12 categorias (clubes, seleções, ligas e prêmios). Os jogadores chegam um por vez:
-   toque na casa em que ele se encaixa ou pule. Vale a carreira inteira (clube ou liga em qualquer época).
-   Baralho de 30 cartas com jogadores conhecidos, retrô e atuais; a cartela sempre tem solução.
-   Encaixe errado queima a carta. Preencha as 12 casas antes de as cartas acabarem. */
+   Cartela 4×3 com 12 categorias (clubes, seleções, liga e às vezes um prêmio). Os jogadores chegam um por vez,
+   craques e jogadores conhecidos de várias épocas — alguns sem ligação nenhuma com a cartela.
+   Sem tempo. Erros livres: encaixe errado não tira a carta. Modo Livre (pulos à vontade) ou 5 pulos.
+   A cartela sempre tem solução. */
 (function () {
   'use strict';
   const MF = window.MF, h = MF.h, t = (k) => MF.t(k);
-  const DECK = 30;
+  const FIRST = 17; // primeiras cartas: 12 da solução + 2 que encaixam + 3 sem ligação
+  const DECK = 90;
+  const SKIPS = 5;
   const LEAGUES = ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Brasileirão', 'Liga Portugal', 'Saudi Pro League', 'MLS', 'Süper Lig'];
   const LG_SHORT = { 'Premier League': 'PL', 'La Liga': 'LL', 'Serie A': 'SA', 'Bundesliga': 'BL', 'Ligue 1': 'L1', 'Brasileirão': 'BR', 'Liga Portugal': 'LP', 'Saudi Pro League': 'SPL', 'MLS': 'MLS', 'Süper Lig': 'SL' };
   const AWARDS = {
@@ -19,10 +21,11 @@
     ball: '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="20" r="14" fill="currentColor"/><path d="M24 11l6 4-2 7h-8l-2-7z" fill="#0d0c09" opacity=".55"/><path d="M17 37h14l2 6H15z" fill="currentColor"/><path d="M22 33h4v5h-4z" fill="currentColor"/></svg>',
   };
 
-  // jogadores do bingo: lendas, famosos e nota 84+ (retrô e atuais)
+  // jogadores do bingo: lendas, famosos e jogadores conhecidos (nota 82+), de todas as épocas.
+  // Só entra quem tem a carreira completa na base (começa até os 21 anos), para nenhum "não encaixa" ser injusto.
   function pool() {
     if (MF._bingoPool) return MF._bingoPool;
-    return (MF._bingoPool = MF.data.P.filter((p) => p.legend || p.famous || p.r >= 84));
+    return (MF._bingoPool = MF.data.P.filter((p) => (p.legend || p.famous || p.r >= 82) && p.st.length && p.first - p.born <= 21));
   }
   function catalog() {
     if (MF._bingoCat) return MF._bingoCat;
@@ -43,54 +46,66 @@
     return (MF._bingoCat = { club, nat, lg, aw });
   }
 
-  // cartela + baralho do dia (sempre com solução: 12 cartas formam um encaixe perfeito)
+  // cartela + baralho do dia: as primeiras 17 cartas bastam (12 formam um encaixe perfeito, 3 não servem em nada);
+  // depois o baralho continua com ~70% de jogadores que encaixam em algo e ~30% sem ligação
   function build(seed) {
     const { club, nat, lg, aw } = catalog();
     const pl = pool();
-    const rnd = MF.rng('bingo:' + seed);
+    const rnd = MF.rng('bingo2:' + seed);
     for (let tries = 0; tries < 50; tries++) {
-      const cats = MF.shuffle([...MF.sample(club, 6, rnd), ...MF.sample(nat, 3, rnd), ...MF.sample(lg, 1, rnd), ...MF.sample(aw, 2, rnd)], rnd);
-      // encaixe: categorias com menos candidatos primeiro
-      const order = cats.map((c, i) => i).sort((a, b) => pl.filter(cats[a].fit).length - pl.filter(cats[b].fit).length);
+      const nAw = rnd() < 0.5 ? 1 : 0;
+      const nLg = 1 + (rnd() < 0.35 ? 1 : 0);
+      const cats = MF.shuffle([...MF.sample(club, 8 - nAw - nLg, rnd), ...MF.sample(nat, 4, rnd), ...MF.sample(lg, nLg, rnd), ...MF.sample(aw, nAw, rnd)], rnd);
+      const order = cats.map((c, i) => i).sort((x, y) => pl.filter(cats[x].fit).length - pl.filter(cats[y].fit).length);
       const used = new Set(), sol = [];
       let ok = true;
       for (const i of order) {
+        // prefere jogadores que não sejam só os mais premiados
         const cand = pl.filter((p) => cats[i].fit(p) && !used.has(p.i));
         if (!cand.length) { ok = false; break; }
         const p = MF.pick(cand, rnd);
         used.add(p.i); sol.push(p.i);
       }
       if (!ok) continue;
-      // extras: 2/3 servem em alguma casa, 1/3 aleatórios
-      const fitsAny = pl.filter((p) => !used.has(p.i) && cats.some((c) => c.fit(p)));
-      const extra = [];
-      for (const p of MF.shuffle(fitsAny, rnd)) { if (extra.length >= 8) break; extra.push(p.i); used.add(p.i); }
-      for (const p of MF.shuffle(pl, rnd)) { if (extra.length >= DECK - 12) break; if (!used.has(p.i)) { extra.push(p.i); used.add(p.i); } }
-      return { cats, deck: MF.shuffle([...sol, ...extra], rnd) };
+      const fit = MF.shuffle(pl.filter((p) => !used.has(p.i) && cats.some((c) => c.fit(p))), rnd);
+      const none = MF.shuffle(pl.filter((p) => !cats.some((c) => c.fit(p))), rnd);
+      if (none.length < 20) continue;
+      const take = (arr, n) => { const out = []; while (out.length < n && arr.length) { const p = arr.shift(); if (!used.has(p.i)) { used.add(p.i); out.push(p.i); } } return out; };
+      const first = MF.shuffle([...sol, ...take(fit, 2), ...take(none, 3)], rnd);
+      const rest = [];
+      while (rest.length < DECK - FIRST && (fit.length || none.length)) {
+        const src = rnd() < 0.3 ? none : fit;
+        const got = take(src.length ? src : (src === none ? fit : none), 1);
+        if (got.length) rest.push(got[0]);
+      }
+      return { cats, deck: [...first, ...rest] };
     }
     return null;
   }
 
   MF.registerGame({
     num: 7, slug: 'bingo-fut10',
-    tag: () => t('nCards').replace('{n}', DECK),
+    tag: () => t('noTimer') + ' ∞',
     rules: {
-      pt: ['Uma cartela com 12 casas: clubes, seleções, ligas e prêmios. Os jogadores aparecem um por vez, entre craques retrô e atuais.', 'Toque na casa em que o jogador se encaixa ou pule para o próximo. Vale a carreira inteira: o clube ou a liga em qualquer época; seleção é a que ele defende.', 'São 30 cartas. Encaixe errado queima a carta. Cada jogador preenche uma casa só. Preencha as 12 casas antes de as cartas acabarem.'],
-      en: ['A card with 12 squares: clubs, nations, leagues and awards. Players appear one at a time, retro stars and current ones.', 'Tap the square where the player fits or skip to the next. The whole career counts: the club or league at any time; nation is the one he represents.', 'There are 30 cards. A wrong placement burns the card. Each player fills one square only. Fill all 12 squares before the cards run out.'],
-      es: ['Un cartón con 12 casillas: clubes, selecciones, ligas y premios. Los jugadores aparecen de uno en uno, entre cracks retro y actuales.', 'Toca la casilla en la que encaja el jugador o salta al siguiente. Vale toda la carrera: el club o la liga en cualquier época; la selección es la que representa.', 'Hay 30 cartas. Un encaje equivocado quema la carta. Cada jugador llena una sola casilla. Llena las 12 casillas antes de que se acaben las cartas.'],
+      pt: ['Uma cartela com 12 casas: clubes, seleções, liga e às vezes um prêmio. Os jogadores aparecem um por vez, com foto e nome: craques e jogadores conhecidos de várias épocas — e alguns não têm ligação nenhuma com a cartela.', 'Toque na casa em que o jogador se encaixa ou pule. Vale a carreira inteira: o clube ou a liga em qualquer época; seleção é a que ele defende. Cada jogador preenche uma casa só.', 'Sem limite de tempo e erros livres: encaixe errado não tira o jogador, tente outra casa ou pule. Modo Livre: pulos à vontade. Modo 5 pulos: só 5 pulos; se acabarem e aparecer alguém que não serve em nenhuma casa livre, o jogo termina. Preencha as 12 casas para vencer.'],
+      en: ['A card with 12 squares: clubs, nations, a league and sometimes an award. Players appear one at a time, with photo and name: stars and well-known players from every era — and some have no link to the card at all.', 'Tap the square where the player fits or skip. The whole career counts: the club or league at any time; nation is the one he represents. Each player fills one square only.', 'No time limit and unlimited mistakes: a wrong square keeps the player, try another or skip. Free mode: unlimited skips. 5 skips mode: only 5 skips; if they run out and a player fits no open square, the game ends. Fill all 12 squares to win.'],
+      es: ['Un cartón con 12 casillas: clubes, selecciones, una liga y a veces un premio. Los jugadores aparecen de uno en uno, con foto y nombre: cracks y jugadores conocidos de todas las épocas — y algunos no tienen relación con el cartón.', 'Toca la casilla en la que encaja el jugador o salta. Vale toda la carrera: el club o la liga en cualquier época; la selección es la que representa. Cada jugador llena una sola casilla.', 'Sin límite de tiempo y fallos libres: una casilla equivocada no quita al jugador, prueba otra o salta. Modo Libre: saltos ilimitados. Modo 5 saltos: solo 5; si se acaban y aparece alguien que no encaja en ninguna casilla libre, el juego termina. Llena las 12 casillas para ganar.'],
     },
-    options: [MF.timerOpt([0, 90, 60])],
+    options: [{ key: 'mode', label: () => t('mode'), def: 'free', choices: () => [{ v: 'free', label: t('bingoFree') }, { v: 'five', label: t('bingoFive') }] }],
     preview() { return h('div', { class: 'pv-grid pv-bingo' }, Array.from({ length: 12 }, (_, i) => h('b', { class: i % 5 === 0 ? 'on' : '' }))); },
     play(board, ctx) {
       const { P, clubs } = MF.data;
       const st = ctx.state;
+      const five = st.opts.mode === 'five';
       const no = MF.daily('g7-bingo', 1000);
       let B = build(no);
       for (let k = 1; !B && k < 10; k++) B = build(no + ':' + k);
       const { cats, deck } = B;
       st.cells = st.cells || Array(12).fill(null);
-      st.k = st.k || 0; // carta atual
+      st.k = st.k || 0; // posição no baralho
       st.miss = st.miss || 0;
+      st.skips = st.skips || 0;
+      st.tried = st.tried || []; // casas já tentadas com o jogador atual
       const lang = MF.lang;
 
       const label = (c) => (c.type === 'club' ? clubs[c.id].n : c.type === 'nat' ? MF.country(c.id) : c.type === 'league' ? c.name : AWARDS[c.id][lang] || AWARDS[c.id].pt);
@@ -103,19 +118,27 @@
 
       const cardBox = h('div', { class: 'bg-card', 'aria-live': 'polite' });
       const grid = h('div', { class: 'bg-grid' });
-      const deckPill = h('span', { class: 'pill' });
+      const missPill = h('span', { class: 'pill' });
       const cellPill = h('span', { class: 'pill' });
-      const skipBtn = h('button', { class: 'btn btn-ghost bg-skip', type: 'button', onclick: () => next() }, t('skip'));
+      const skipBtn = h('button', { class: 'btn btn-ghost bg-skip', type: 'button', onclick: () => skip() });
       const flag = h('button', { class: 'btn btn-ghost flag-btn', type: 'button', 'aria-label': t('giveUp'), title: t('giveUp'), onclick: () => end(false) }, MF.icon('flag'));
       const filled = () => st.cells.filter((x) => x != null).length;
-      const cur = () => (st.k < deck.length ? P[deck[st.k]] : null);
+      // baralho sem fim: depois das 90 cartas, volta ao começo pulando quem já está na cartela
+      const cur = () => {
+        for (let n = 0; n < deck.length; n++) { const pi = deck[(st.k + n) % deck.length]; if (!st.cells.includes(pi)) { if (n) st.k += n; return P[pi]; } }
+        return null;
+      };
+      const skipsLeft = () => SKIPS - st.skips;
+      const fitsOpen = (p) => cats.some((c, i) => st.cells[i] == null && c.fit(p));
 
       function paint(pop, bad) {
         const done = ctx.finished();
-        const p = cur();
+        const p = done ? null : cur();
         MF.clear(cardBox);
-        if (!done && p) {
-          cardBox.appendChild(h('div', { class: 'bg-player pop' }, MF.photo(p.n, p.nat, 84), h('strong', null, p.n)));
+        if (p) {
+          cardBox.appendChild(h('div', { class: 'bg-player pop' }, MF.photo(p.n, p.nat, 96), h('strong', null, p.n)));
+          skipBtn.textContent = t('skip') + (five ? ' (' + skipsLeft() + ')' : '');
+          skipBtn.disabled = five && skipsLeft() <= 0;
           cardBox.appendChild(skipBtn);
         } else if (done) {
           cardBox.appendChild(h('p', { class: 'bg-end' }, filled() + '/12'));
@@ -126,50 +149,63 @@
           let inner;
           if (pi != null) inner = [MF.photo(P[pi].n, P[pi].nat, 40), h('span', { class: 'bg-name' }, P[pi].n), h('span', { class: 'bg-cat' }, label(c))];
           else if (done) {
-            const ex = pool().filter((q) => c.fit(q) && !st.cells.includes(q.i)).sort((a, b) => b.r - a.r)[0];
+            const ex = pool().filter((q) => c.fit(q) && !st.cells.includes(q.i)).sort((x, y) => y.r - x.r)[0];
             inner = [icon(c), h('span', { class: 'bg-cat' }, label(c)), ex ? h('span', { class: 'bg-ex' }, ex.n) : null];
           } else inner = [icon(c), h('span', { class: 'bg-cat' }, label(c))];
+          const tried = !done && pi == null && st.tried.includes(i);
           grid.appendChild(h('button', {
-            type: 'button', class: 'bg-cell' + (pi != null ? ' on' : '') + (pop === i ? ' pop' : '') + (bad === i ? ' bad shake' : '') + (done && pi == null ? ' miss' : ''),
+            type: 'button', class: 'bg-cell' + (pi != null ? ' on' : '') + (pop === i ? ' pop' : '') + (bad === i ? ' bad shake' : tried ? ' bad' : '') + (done && pi == null ? ' miss' : ''),
             disabled: done || pi != null, 'aria-label': label(c) + (pi != null ? ' · ' + P[pi].n : ''), onclick: () => place(i),
           }, inner));
         });
-        deckPill.textContent = t('cardsLeft') + ': ' + Math.max(0, deck.length - st.k) + '/' + deck.length;
-        cellPill.textContent = filled() + '/12';
+        missPill.textContent = t('misses') + ': ' + st.miss;
+        cellPill.textContent = filled() + '/12' + (five ? ' · ' + t('skipsLeft') + ': ' + skipsLeft() : '');
       }
-      function next() {
-        if (ctx.finished()) return;
-        st.k++;
+      function advance() {
+        st.k = (st.k + 1) % deck.length;
+        st.tried = [];
         ctx.save();
-        if (st.k >= deck.length) return end(false);
+        // 5 pulos: sem pulo e ninguém para essa carta → fim de jogo
+        const p = cur();
+        if (five && skipsLeft() <= 0 && p && !fitsOpen(p)) {
+          MF.toast(t('bingoStuck').replace('{p}', p.n), 'bad');
+          return end(false);
+        }
         paint();
+      }
+      function skip() {
+        if (ctx.finished()) return;
+        if (five) { if (skipsLeft() <= 0) return; st.skips++; }
+        advance();
       }
       function place(i) {
         const p = cur();
         if (ctx.finished() || !p || st.cells[i] != null) return;
         if (cats[i].fit(p)) {
-          st.cells[i] = p.i; st.k++;
+          st.cells[i] = p.i;
+          if (filled() === 12) { ctx.save(); return end(true); }
+          st.k = (st.k + 1) % deck.length; st.tried = [];
           ctx.save();
-          if (filled() === 12) return end(true);
-          if (st.k >= deck.length) return end(false);
+          const q = cur();
+          if (five && skipsLeft() <= 0 && q && !fitsOpen(q)) { MF.toast(t('bingoStuck').replace('{p}', q.n), 'bad'); return end(false); }
           return paint(i);
         }
-        st.miss++; st.k++;
+        // erro livre: o jogador continua, a casa fica marcada para esta carta
+        st.miss++;
+        if (!st.tried.includes(i)) st.tried.push(i);
         ctx.save();
         MF.toast(t('bingoWrong').replace('{p}', p.n).replace('{c}', label(cats[i])), 'bad');
-        if (st.k >= deck.length) return end(false);
         paint(null, i);
       }
       function end(win) {
         if (ctx.finished()) return;
         const n = filled();
         const rows = [0, 1, 2].map((r) => [0, 1, 2, 3].map((c) => (st.cells[r * 4 + c] != null ? '🟩' : '⬛')).join('')).join('\n');
-        st.scoreLabel = n + '/12 · ' + st.k + ' ' + t('cardsWord');
-        ctx.finish(win, n, rows + '\n' + n + '/12 · ' + st.k + '/' + deck.length + ' ' + t('cardsWord') + ' · ' + st.miss + ' ' + t('missesWord'));
+        st.scoreLabel = n + '/12 · ' + st.miss + ' ' + t('missesWord');
+        ctx.finish(win, n, rows + '\n' + n + '/12 · ' + st.miss + ' ' + t('missesWord') + (five ? ' · ' + st.skips + '/' + SKIPS + ' ' + t('skipsWord') : ''));
         paint();
       }
-      ctx.onTimeUp = () => end(false);
-      board.appendChild(h('div', { class: 'bar' }, deckPill, cellPill, ctx.timerEl));
+      board.appendChild(h('div', { class: 'bar' }, cellPill, missPill, h('span', { class: 'pill' }, five ? t('bingoFive') : t('bingoFree'))));
       board.appendChild(cardBox);
       board.appendChild(grid);
       board.appendChild(h('div', { class: 'row-btns center' }, flag));
