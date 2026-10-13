@@ -101,7 +101,8 @@
   // ------------------------------------------------------------------ dados
   MF.data = null;
   MF.loadData = async () => {
-    MF.CRESTS = await fetch('data/crests.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+    const opt = (u) => fetch(u).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+    [MF.CRESTS, MF.TROPHIES] = await Promise.all([opt('data/crests.json'), opt('data/trophies.json')]);
     const [db, games, flags] = await Promise.all(
       ['data/db.json', 'data/games.json', 'data/flags.json'].map((u) => fetch(u).then((r) => {
         if (!r.ok) throw new Error(u + ' ' + r.status);
@@ -122,6 +123,9 @@
       p.first = p.st.length ? p.st[0][1] : p.born + 18;
       p.lastY = p.st.length ? Math.max(...p.st.map((s) => s[2])) : p.born + 35;
     }
+    // títulos extras (Libertadores pelo clube/ano, Eurocopa pelos elencos campeões)
+    const TR = MF.TROPHIES || {};
+    for (const p of P) { p.lib = !!(TR.lib && TR.lib[p.i]); p.euro = !!(TR.euro && TR.euro[p.i]); }
     // jogadores por clube
     const byClub = clubs.map(() => []);
     for (const p of P) for (const c of p.clubs) byClub[c].push(p.i);
