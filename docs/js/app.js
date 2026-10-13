@@ -143,7 +143,7 @@
         h('span', { class: 'sheet-txt' },
           h('span', { class: 'sheet-name' }, name),
           h('span', { class: 'sheet-desc' }, desc),
-          h('span', { class: 'rule-tag' + (g.chances ? ' limited' : '') }, g.chances ? t('fiveChances') : t('freeAnswers'))),
+          h('span', { class: 'rule-tag' + (g.chances ? ' limited' : '') }, g.chances ? t('nChances').replace('{n}', g.chances) : t('freeAnswers'))),
         h('span', { class: 'chip chip-' + status }, statusText(status)),
         s.streak > 1 ? h('span', { class: 'streak', title: t('streak') }, '🔥' + s.streak) : null)));
     });
@@ -176,7 +176,7 @@ clockLine(),
         h('span', { class: 'sheet-txt' },
           h('span', { class: 'sheet-name' }, name),
           h('span', { class: 'sheet-desc' }, desc),
-          h('span', { class: 'rule-tag' + (g.chances ? ' limited' : '') }, g.chances ? t('fiveChances') : t('freeAnswers'))),
+          h('span', { class: 'rule-tag' + (g.chances ? ' limited' : '') }, g.chances ? t('nChances').replace('{n}', g.chances) : t('freeAnswers'))),
         h('span', { class: 'chip chip-' + status }, statusText(status)),
         s.streak > 1 ? h('span', { class: 'streak', title: t('streak') }, '🔥' + s.streak) : null)));
     });
@@ -303,7 +303,7 @@ clockLine()),
       g.preview ? h('div', { class: 'intro-art', 'aria-hidden': 'true' }, g.preview()) : null,
       h('div', { class: 'intro-body' },
         h('h2', null, t('howTo')),
-        h('span', { class: 'rule-tag' + (g.chances ? ' limited' : '') }, g.chances ? t('fiveChances') : t('freeAnswers')),
+        h('span', { class: 'rule-tag' + (g.chances ? ' limited' : '') }, g.chances ? t('nChances').replace('{n}', g.chances) : t('freeAnswers')),
         h('ul', { class: 'rules' }, rules.map((r) => h('li', null, r))),
         h('div', { class: 'controls' }, controls),
         h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: () => {

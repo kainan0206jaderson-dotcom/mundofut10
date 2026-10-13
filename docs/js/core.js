@@ -101,6 +101,7 @@
   // ------------------------------------------------------------------ dados
   MF.data = null;
   MF.loadData = async () => {
+    MF.CRESTS = await fetch('data/crests.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
     const [db, games, flags] = await Promise.all(
       ['data/db.json', 'data/games.json', 'data/flags.json'].map((u) => fetch(u).then((r) => {
         if (!r.ok) throw new Error(u + ' ' + r.status);

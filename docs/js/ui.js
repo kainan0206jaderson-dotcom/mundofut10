@@ -87,8 +87,10 @@
     const txt = MF.contrastOn(a);
     const span = h('span', { class: 'crest', style: { width: size + 'px', height: size * 1.15 + 'px' }, title: clubName, 'aria-hidden': 'true' });
     span.innerHTML = `<svg viewBox="0 0 40 46" width="${size}" height="${size * 1.15}"><path d="M20 1 L38 7 V22 C38 34 30 41 20 45 C10 41 2 34 2 22 V7 Z" fill="${a}" stroke="${b}" stroke-width="2.5"/><path d="M2 22 H38" stroke="${b}" stroke-width="0" /><text x="20" y="27" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="${ini.length > 2 ? 11 : 14}" fill="${txt}">${ini}</text></svg>`;
-    // escudo real (Wikimedia Commons via Wikidata), quando existir
-    if (MF.media && clubName) MF.media.club(clubName).then((url) => { if (url) MF.media.swapImg(span, url, clubName, 'crest-img'); });
+    // escudo real: pacote local (crests/) primeiro; Wikidata/Commons só para clubes fora do pacote
+    const local = clubName && MF.CRESTS && MF.CRESTS[MF.norm(clubName).replace(/[^a-z0-9]/g, '')];
+    if (local) MF.media.swapImg(span, local, clubName, 'crest-img');
+    else if (MF.media && clubName) MF.media.club(clubName).then((url) => { if (url) MF.media.swapImg(span, url, clubName, 'crest-img'); });
     return span;
   };
 
@@ -225,7 +227,7 @@
         list.appendChild(h('li', {
           role: 'option', id: id + '-o' + i, class: i === active ? 'on' : '', 'aria-selected': i === active ? 'true' : 'false',
           onmousedown: (e) => { e.preventDefault(); pick(it); },
-        }, it.flag ? MF.flag(it.flag) : null, it.crest ? MF.crest(it.crest, 18) : null, h('span', { class: 'ac-name' }, it.label), it.sub ? h('span', { class: 'ac-sub' }, it.sub) : null));
+        }, it.flag ? MF.flag(it.flag) : null, h('span', { class: 'ac-name' }, it.label), it.sub ? h('span', { class: 'ac-sub' }, it.sub) : null));
       });
       list.hidden = !items.length;
       input.setAttribute('aria-expanded', items.length ? 'true' : 'false');

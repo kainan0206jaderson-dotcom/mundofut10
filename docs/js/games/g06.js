@@ -47,9 +47,9 @@
   MF.registerGame({
     num: 6, slug: 'piramide-do-atleta',
     rules: {
-      pt: ['A categoria do dia aparece no topo (gols, votos da Bola de Ouro, notas do FIFA…).', 'Os 10 jogadores chegam um por vez. Toque numa casa vazia para colocá-lo: o 1º no topo, depois 2, 3 e 4 por fileira, da esquerda para a direita.', 'Para trocar, toque num jogador já colocado e depois na casa de destino. A Ajuda mostra quantos estão certos, uma vez por jogo.', 'No modo fácil você vê em qual fileira cada jogador fica. Acertando 7 ou mais, vitória.'],
-      en: ['Today’s category is at the top (goals, Ballon d’Or votes, FIFA ratings…).', 'The 10 players arrive one at a time. Tap an empty spot to place them: 1st at the top, then rows of 2, 3 and 4, left to right.', 'To swap, tap a placed player and then the target spot. Help shows how many are right, once per game.', 'In easy mode you see which row each player belongs to. Get 7 or more right to win.'],
-      es: ['La categoría del día está arriba (goles, votos del Balón de Oro, medias de FIFA…).', 'Los 10 jugadores llegan de uno en uno. Toca una casilla vacía para colocarlo: el 1.º arriba, luego filas de 2, 3 y 4, de izquierda a derecha.', 'Para cambiar, toca un jugador colocado y luego la casilla de destino. La Ayuda muestra cuántos están bien, una vez por partida.', 'En modo fácil ves en qué fila va cada jugador. Con 7 o más aciertos, ganas.'],
+      pt: ['A categoria do dia aparece no topo (gols, votos da Bola de Ouro, notas do FIFA…).', 'Os 10 jogadores chegam um por vez. Toque numa casa vazia para colocá-lo: o 1º no topo, depois 2, 3 e 4 por fileira, da esquerda para a direita.', 'Para trocar, toque num jogador já colocado e depois na casa de destino. A Ajuda, uma vez por jogo, pinta de verde quem está no lugar certo e de vermelho quem está errado.', 'No modo fácil você vê em qual fileira cada jogador fica. Acertando 7 ou mais, vitória.'],
+      en: ['Today’s category is at the top (goals, Ballon d’Or votes, FIFA ratings…).', 'The 10 players arrive one at a time. Tap an empty spot to place them: 1st at the top, then rows of 2, 3 and 4, left to right.', 'To swap, tap a placed player and then the target spot. Help, once per game, turns players in the right spot green and the wrong ones red.', 'In easy mode you see which row each player belongs to. Get 7 or more right to win.'],
+      es: ['La categoría del día está arriba (goles, votos del Balón de Oro, medias de FIFA…).', 'Los 10 jugadores llegan de uno en uno. Toca una casilla vacía para colocarlo: el 1.º arriba, luego filas de 2, 3 y 4, de izquierda a derecha.', 'Para cambiar, toca un jugador colocado y luego la casilla de destino. La Ayuda, una vez por partida, pinta de verde a los bien colocados y de rojo a los mal colocados.', 'En modo fácil ves en qué fila va cada jugador. Con 7 o más aciertos, ganas.'],
     },
     options: [
       { key: 'mode', label: () => t('mode'), def: 'normal', choices: () => [{ v: 'easy', label: t('easy') }, { v: 'normal', label: t('normal') }] },
@@ -75,7 +75,7 @@
 
       const pyr = h('div', { class: 'pyr' });
       const next = h('div', { class: 'pyr-next', 'aria-live': 'polite' });
-      const helpBtn = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => { if (st.help) return; st.help = true; ctx.save(); MF.toast(correct() + ' ' + t('correctCount')); paint(); } }, t('help'));
+      const helpBtn = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => { if (st.help) return; st.help = true; st.helpSnap = st.slots.slice(); ctx.save(); MF.toast(correct() + ' ' + t('correctCount')); paint(); } }, t('help'));
       const submit = h('button', { class: 'btn btn-primary', type: 'button', onclick: () => end() }, t('submit'));
       function paint(pop) {
         const done = ctx.finished();
@@ -84,8 +84,11 @@
           pyr.appendChild(h('div', { class: 'pyr-row' }, r.map((k) => {
             const it = st.slots[k];
             const right = done && it != null && items[it].v === rankVal[k];
+            // Ajuda: pinta (verde/vermelho) os que estavam na pirâmide quando ela foi usada, enquanto não forem movidos
+            const hinted = !done && st.helpSnap && it != null && st.helpSnap[k] === it;
+            const hintCls = hinted ? (items[it].v === rankVal[k] ? ' ok' : ' bad') : '';
             return h('button', {
-              type: 'button', class: 'pyr-slot' + (it != null ? ' filled' : '') + (sel === k ? ' sel' : '') + (done ? (right ? ' ok' : ' bad') : '') + (pop === k ? ' pop' : ''),
+              type: 'button', class: 'pyr-slot' + (it != null ? ' filled' : '') + (sel === k ? ' sel' : '') + (done ? (right ? ' ok' : ' bad') : hintCls) + (pop === k ? ' pop' : ''),
               disabled: done, 'aria-label': (k + 1) + 'º ' + (it != null ? items[it].n : ''), onclick: () => tap(k),
             }, h('span', { class: 'pyr-k' }, k + 1), it != null ? h('span', { class: 'pyr-name' }, MF.photo(items[it].n, '', 24), items[it].n) : null,
               done && it != null ? h('span', { class: 'pyr-val' }, fmt(items[it].v)) : null);
