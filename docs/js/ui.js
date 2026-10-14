@@ -198,9 +198,10 @@
       MF.clear(group);
       for (const c of choices) {
         group.appendChild(h('button', {
-          type: 'button', role: 'radio', 'aria-checked': c.v === value ? 'true' : 'false', class: c.v === value ? 'on' : '',
-          onclick: () => { value = c.v; render(); onChange(c.v); },
-        }, c.label));
+          type: 'button', role: 'radio', 'aria-checked': c.v === value ? 'true' : 'false', class: (c.v === value ? 'on' : '') + (c.mark ? ' done-' + c.mark : ''),
+          disabled: c.disabled, title: c.disabled ? t('levelDone') : null,
+          onclick: () => { if (c.disabled) return; value = c.v; render(); onChange(c.v); },
+        }, c.mark ? h('span', { class: 'seg-mark', 'aria-hidden': 'true' }, c.mark === 'won' ? '✓' : '✗') : null, c.label));
       }
     };
     render();
@@ -254,7 +255,8 @@
   MF.playerSource = (filter) => (q) =>
     MF.searchPlayers(q, 8, filter).map((i) => {
       const p = MF.data.P[i];
-      return { id: i, label: p.n, sub: String(p.born), flag: null };
+      const last = p.st.length ? p.st.reduce((a, b) => (b[2] > a[2] ? b : a)) : null;
+      return { id: i, label: p.n, sub: (p.born ? p.born + ' · ' : '') + (last ? MF.data.clubs[last[0]].n : ''), flag: p.nat || null };
     });
 
   // ------------------------------------------------------------------ cronômetro

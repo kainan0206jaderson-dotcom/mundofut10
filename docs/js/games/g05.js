@@ -6,22 +6,29 @@
   const EASY_CLUBS = ['Real Madrid', 'Barcelona', 'Atlético de Madrid', 'Manchester United', 'Manchester City', 'Liverpool', 'Chelsea', 'Arsenal',
     'Tottenham', 'Bayern de Munique', 'Borussia Dortmund', 'Juventus', 'Milan', 'Inter de Milão', 'Paris Saint-Germain', 'Roma', 'Napoli', 'Sevilla', 'Valencia'];
   const EASY_NATS = ['Brazil', 'Argentina', 'France', 'Spain', 'Germany', 'England', 'Portugal', 'Italy', 'Netherlands', 'Belgium'];
-  const LEVEL = { easy: [25, 30, 3], normal: [14, 18, 2], hard: [9, 10, 2], legend: [5, 5, 1] }; // min jogadores por clube, por seleção, mínimo por casa
+  // faixa de clubes (pelo ranking de jogadores na base), mínimo por seleção e mínimo de respostas por casa
+const LEVEL = { easy: [0, 25, 0, 6], normal: [0, 80, 60, 3], hard: [40, 260, 25, 2], legend: [120, 700, 10, 1] };
 
   MF.criteria = (mode) => {
     const key = 'crit:' + mode;
     MF._crit = MF._crit || {};
     if (MF._crit[key]) return MF._crit[key];
-    const { P, clubs, byClub } = MF.data;
-    const byNat = new Map();
-    for (const p of P) { if (!byNat.has(p.nat)) byNat.set(p.nat, []); byNat.get(p.nat).push(p.i); }
-    const [mc, mn] = LEVEL[mode] || LEVEL.normal;
+    const { P, clubs } = MF.data;
+    // só a base principal e jogadores de 1990 para cá (o grid do dia é igual para todos)
+    const core = P.slice(0, MF.CORE_N).filter(MF.era);
+    const byNat = new Map(), byClub = clubs.map(() => []);
+    for (const p of core) {
+      if (!p.natGuess) { if (!byNat.has(p.nat)) byNat.set(p.nat, []); byNat.get(p.nat).push(p.i); }
+      for (const c of p.clubs) byClub[c].push(p.i);
+    }
+    const [c0, c1, mn] = LEVEL[mode] || LEVEL.normal;
     let cl, na;
     if (mode === 'easy') {
       cl = clubs.filter((c) => EASY_CLUBS.includes(c.n)).map((c) => ({ type: 'club', id: c.i, label: c.n, set: new Set(byClub[c.i]) }));
       na = EASY_NATS.map((n) => ({ type: 'nat', id: n, label: n, set: new Set(byNat.get(n) || []) }));
     } else {
-      cl = clubs.filter((c) => byClub[c.i].length >= mc).map((c) => ({ type: 'club', id: c.i, label: c.n, set: new Set(byClub[c.i]) }));
+      const rank = clubs.map((c) => c.i).filter((i) => byClub[i].length >= 8).sort((a, b) => byClub[b].length - byClub[a].length).slice(c0, c1);
+      cl = rank.map((i) => ({ type: 'club', id: i, label: clubs[i].n, set: new Set(byClub[i]) }));
       na = [...byNat.entries()].filter(([, v]) => v.length >= mn).map(([n, v]) => ({ type: 'nat', id: n, label: n, set: new Set(v) }));
     }
     return (MF._crit[key] = { cl, na });
@@ -33,7 +40,7 @@
 
   function buildGrid(mode, seedNo) {
     const { cl, na } = MF.criteria(mode);
-    const minCell = (LEVEL[mode] || LEVEL.normal)[2];
+    const minCell = (LEVEL[mode] || LEVEL.normal)[3];
     const rnd = MF.rng('grid:' + mode + ':' + seedNo);
     for (let tries = 0; tries < 600; tries++) {
       const rows = MF.sample(cl, 3, rnd);
@@ -51,9 +58,9 @@
   MF.registerGame({
     num: 5, slug: 'futebol-grid',
     rules: {
-      pt: ['Preencha as 9 casas com jogadores que passaram pelo clube da linha e pelo clube ou seleção da coluna.', 'Se o jogador servir em mais de uma casa livre, você escolhe onde colocar; se servir em só uma, ele entra direto.', 'Vale qualquer jogador, da ativa ou aposentado. Palpites livres; cada jogador só entra uma vez. Complete o grid ou toque em Desistir.', 'Dificuldade — Fácil: só gigantes da Europa e grandes seleções, com muitas respostas por casa. Normal: clubes conhecidos. Difícil: clubes menores e casas com poucas respostas. Lendário: qualquer clube ou seleção, e casas que podem ter uma única resposta.'],
-      en: ['Fill the 9 squares with players who played for the row club and for the column club or nation.', 'If a player fits more than one open square, you choose; if he fits only one, he goes straight in.', 'Any player counts, current or retired. Unlimited guesses; each player can be used once. Complete the grid or tap Give up.', 'Difficulty — Easy: only European giants and big nations, with many answers per square. Normal: well-known clubs. Hard: smaller clubs and squares with few answers. Legendary: any club or nation, and squares that may have a single answer.'],
-      es: ['Rellena las 9 casillas con jugadores que pasaron por el club de la fila y por el club o selección de la columna.', 'Si un jugador sirve en más de una casilla libre, eliges dónde; si solo sirve en una, entra directo.', 'Vale cualquier jugador, en activo o retirado. Intentos libres; cada jugador entra una sola vez. Completa la cuadrícula o toca Rendirse.', 'Dificultad — Fácil: solo gigantes de Europa y grandes selecciones, con muchas respuestas por casilla. Normal: clubes conocidos. Difícil: clubes más pequeños y casillas con pocas respuestas. Legendario: cualquier club o selección, y casillas que pueden tener una sola respuesta.'],
+      pt: ['Preencha as 9 casas com jogadores que passaram pelo clube da linha e pelo clube ou seleção da coluna.', 'Se o jogador servir em mais de uma casa livre, você escolhe onde colocar; se servir em só uma, ele entra direto.', 'Vale qualquer jogador que atuou de 1990 para cá, da ativa ou aposentado (base completa do Transfermarkt). Palpites livres; cada jogador só entra uma vez. Complete o grid ou toque em Desistir.', 'Dificuldade — Fácil: só gigantes da Europa e grandes seleções, com muitas respostas por casa. Normal: clubes conhecidos. Difícil: clubes menores e casas com poucas respostas. Lendário: qualquer clube ou seleção, e casas que podem ter uma única resposta.'],
+      en: ['Fill the 9 squares with players who played for the row club and for the column club or nation.', 'If a player fits more than one open square, you choose; if he fits only one, he goes straight in.', 'Any player active from 1990 on counts, current or retired (full Transfermarkt database). Unlimited guesses; each player can be used once. Complete the grid or tap Give up.', 'Difficulty — Easy: only European giants and big nations, with many answers per square. Normal: well-known clubs. Hard: smaller clubs and squares with few answers. Legendary: any club or nation, and squares that may have a single answer.'],
+      es: ['Rellena las 9 casillas con jugadores que pasaron por el club de la fila y por el club o selección de la columna.', 'Si un jugador sirve en más de una casilla libre, eliges dónde; si solo sirve en una, entra directo.', 'Vale cualquier jugador que jugó de 1990 en adelante, en activo o retirado (base completa de Transfermarkt). Intentos libres; cada jugador entra una sola vez. Completa la cuadrícula o toca Rendirse.', 'Dificultad — Fácil: solo gigantes de Europa y grandes selecciones, con muchas respuestas por casilla. Normal: clubes conocidos. Difícil: clubes más pequeños y casillas con pocas respuestas. Legendario: cualquier club o selección, y casillas que pueden tener una sola respuesta.'],
     },
     options: [
       MF.levelOpt(),
@@ -66,7 +73,7 @@
       const mode = MF.level(st);
       // sequência de grids sem repetição: cada dia percorre uma permutação de 500 grids distintos
       const N = 500;
-      const no = MF.daily('g5-grid:' + mode, N);
+      const no = MF.daily('g5-grid2:' + mode, N);
       let grid = buildGrid(mode, no);
       for (let k = 1; !grid && k < 20; k++) grid = buildGrid(mode, no + '-' + k);
       if (!grid) grid = buildGrid('easy', no);
@@ -76,7 +83,9 @@
       const MAX = 12;
       let choosing = null;
 
-      const fits = (pi, cell) => rows[Math.floor(cell / 3)].set.has(pi) && cols[cell % 3].set.has(pi);
+      // vale qualquer jogador da base (principal ou completa) que jogou de 1990 para cá
+      const ok = (c, p) => (c.type === 'club' ? p.clubs.includes(c.id) : p.nat === c.id);
+      const fits = (pi, cell) => ok(rows[Math.floor(cell / 3)], P[pi]) && ok(cols[cell % 3], P[pi]);
       const table = h('div', { class: 'grid9' });
       const left = h('span', { class: 'pill' });
       const msg = h('p', { class: 'grid-msg', 'aria-live': 'polite' });
@@ -122,6 +131,7 @@
       function guess(pi) {
         if (ctx.finished() || choosing) return;
         if (st.cells.includes(pi)) return MF.toast(t('usedAlready'));
+        if (!MF.era(P[pi])) return MF.toast(t('eraOnly'), 'bad');
         st.n++;
         const open = [];
         for (let i = 0; i < 9; i++) if (st.cells[i] == null && fits(pi, i)) open.push(i);
@@ -147,7 +157,8 @@
         paint();
       }
       ctx.onTimeUp = () => end();
-      const ac = MF.autocomplete({ source: MF.playerSource(), onPick: (it) => guess(it.id), extra: h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => end() }, t('giveUp')) });
+      MF.loadExt && MF.loadExt();
+      const ac = MF.autocomplete({ source: MF.playerSource((i) => MF.era(P[i])), onPick: (it) => guess(it.id), extra: h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => end() }, t('giveUp')) });
       board.appendChild(h('div', { class: 'bar' }, h('span', { class: 'pill' }, t((mode))), left, ctx.timerEl));
       board.appendChild(h('div', { class: 'grid-scroll' }, table));
       board.appendChild(msg);

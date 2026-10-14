@@ -23,12 +23,14 @@ if 'tm' in OLD.get('v', ''):
     OLD = json.load(open(LEG_PATH))
 else:
     json.dump(OLD, open(LEG_PATH, 'w'), ensure_ascii=False)
-DRAFT = json.load(open(os.path.join(OUT, 'draft.json')))
+DRAFT = json.load(open(os.path.join(ROOT, 'tools', 'legacy_draft.json')))  # elencos 2026/27 (EA FC 27 + Wikipedia): só o clube atual
+for _f in ('games', 'trophies'):
+    _p = os.path.join(ROOT, 'tools', 'legacy_' + _f + '.json')
+    if not os.path.exists(_p):
+        json.dump(json.load(open(os.path.join(OUT, _f + '.json'))), open(_p, 'w'), ensure_ascii=False)
 
-COUNTRY_FIX = {'Türkiye': 'Turkey', 'United States of America': 'United States', 'USA': 'United States', 'Korea, South': 'South Korea',
-               "Cote d'Ivoire": 'Ivory Coast', "Côte d'Ivoire": 'Ivory Coast', 'Czechia': 'Czech Republic', 'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
-               'Republic of Ireland': 'Ireland', 'Congo DR': 'DR Congo', 'Korea, North': 'North Korea', 'Chinese Taipei (Taiwan)': 'Taiwan'}
-cfix = lambda c: COUNTRY_FIX.get(c, c) if isinstance(c, str) and c not in ('nan', 'None', '') else None
+from countries import canon, INFO
+cfix = canon
 
 # ligas cobertas pelas transferências (nome no Transfermarkt + país) -> id de liga da base
 LEAGUE_ID = {
@@ -36,9 +38,9 @@ LEAGUE_ID = {
     ('Serie A', 'Italy'): 31, ('Bundesliga', 'Germany'): 19, ('1.Bundesliga', 'Germany'): 19, ('Ligue 1', 'France'): 16,
     ('Eredivisie', 'Netherlands'): 10, ('Süper Lig', 'Turkey'): 68, ('Super Lig', 'Turkey'): 68, ('Saudi Pro League', 'Saudi Arabia'): 350,
     ('Saudi Professional League', 'Saudi Arabia'): 350, ('Liga Portugal', 'Portugal'): 308, ('Liga NOS', 'Portugal'): 308, ('Liga Nos', 'Portugal'): 308,
-    ('Major League Soccer', 'United States'): 39, ('Campeonato Brasileiro Serie A', 'Brazil'): 7, ('Chinese Super League', 'China'): 2012,
+    ('Major League Soccer', 'United States'): 39, ('Campeonato Brasileiro Serie A', 'Brazil'): 7, ('Chinese Super League', 'China PR'): 2012,
     ('Premier Liga', 'Russia'): 67, ('J1 League', 'Japan'): 349, ('Liga MX Apertura', 'Mexico'): 341, ('Liga MX', 'Mexico'): 341,
-    ('Superliga', 'Argentina'): 353, ('Jupiler Pro League', 'Belgium'): 4, ('Pro League', 'Belgium'): 4, ('K League 1', 'South Korea'): 83, ('K-League 1', 'South Korea'): 83,
+    ('Superliga', 'Argentina'): 353, ('Jupiler Pro League', 'Belgium'): 4, ('Pro League', 'Belgium'): 4, ('K League 1', 'Korea Republic'): 83, ('K-League 1', 'Korea Republic'): 83,
     ('Scottish Premiership', 'Scotland'): 50, ('Premiership', 'Scotland'): 50, ('Super League', 'Switzerland'): 189, ('Bundesliga', 'Austria'): 80,
     ('Superligaen', 'Denmark'): 1, ('Liga Dimayor I', 'Colombia'): 336, ('Liga Dimayor Apertura', 'Colombia'): 336, ('Allsvenskan', 'Sweden'): 56,
     ('Eliteserien', 'Norway'): 41, ('Championship', 'England'): 14,
@@ -46,7 +48,7 @@ LEAGUE_ID = {
 # país -> liga da base (para clubes de ligas não cobertas pelas transferências)
 COUNTRY_LEAGUE = {
     'England': 13, 'Spain': 53, 'Italy': 31, 'Germany': 19, 'France': 16, 'Netherlands': 10, 'Turkey': 68, 'Saudi Arabia': 350, 'Portugal': 308,
-    'United States': 39, 'Brazil': 7, 'China': 2012, 'Russia': 67, 'Japan': 349, 'Mexico': 341, 'Argentina': 353, 'Belgium': 4, 'South Korea': 83,
+    'United States': 39, 'Brazil': 7, 'China PR': 2012, 'Russia': 67, 'Japan': 349, 'Mexico': 341, 'Argentina': 353, 'Belgium': 4, 'Korea Republic': 83,
     'Scotland': 50, 'Switzerland': 189, 'Austria': 80, 'Denmark': 1, 'Colombia': 336, 'Sweden': 56, 'Norway': 41, 'Greece': 63, 'Poland': 66,
     'Croatia': 317, 'Czech Republic': 319, 'Romania': 330, 'Ukraine': 332, 'Chile': 335, 'Paraguay': 337, 'Uruguay': 338, 'Australia': 351,
     'Bolivia': 2017, 'Ecuador': 2018, 'Peru': 2020, 'United Arab Emirates': 2013, 'Qatar': 9002, 'Canada': 39,
@@ -87,6 +89,12 @@ def main():
     for k, v in cinfo.items():
         for n in v['names']:
             name2g.setdefault(n, k)
+    td = pd.read_csv(f'{DS}/football-datasets/datalake/transfermarkt/team_details/team_details.csv')
+    for r in td.itertuples():
+        nm = re.sub(r'\s*\(\d+\)$', '', str(r.club_name))
+        g = name2g.get(nm)
+        if g is not None and not cinfo[g].get('tmid'):
+            cinfo[g]['tmid'] = str(r.club_id)
 
     # ---------------------------------------------------------------- clubes
     old_clubs = OLD['clubs']
@@ -129,7 +137,7 @@ def main():
         if cty not in extra_league:
             lid = 20000 + len(extra_league)
             extra_league[cty] = lid
-            leagues[lid] = 'Liga de ' + PT_COUNTRY.get(cty, cty) if cty in PT_COUNTRY else 'Liga (' + cty + ')'
+            leagues[lid] = 'Liga de ' + INFO[cty][1] if cty in INFO else 'Liga (' + cty + ')'
         return extra_league[cty]
 
     clubs = []  # [nome, liga, país, tmid]
@@ -147,8 +155,14 @@ def main():
             lid = old_clubs[g2old[g]][1] or lid
         else:
             name = short(v['names'][0])
+            # nome sem país igual ao de um clube conhecido (ex.: 'Arsenal'): é o mesmo clube
+            if not cty:
+                for j, (on, ol) in enumerate(old_clubs):
+                    if on == name and j in old2g and old2g[j] != g:
+                        g2c[g] = club_index(old2g[j])
+                        return g2c[g]
         g2c[g] = len(clubs)
-        clubs.append([name, lid, cty, v.get('tmid')])
+        clubs.append([name, lid, cty, v.get('tmid'), g, g in g2old])
         return g2c[g]
 
     # ---------------------------------------------------------------- base curada: índice por nome
@@ -190,10 +204,15 @@ def main():
         st = [[g, a, b, f] for g, a, b, f in p['st'] if g in cinfo and not cinfo[g]['youth']]
         if not st:
             continue
+        if not isinstance(p['name'], str):
+            alt = [x for x in p['names'] if isinstance(x, str)]
+            if not alt:
+                continue
+            p['name'] = alt[0]
         rec = {
             'n': p['name'], 'alias': [], 'fn': p['name'], 'nat': cfix(p['nat']), 'nat2': cfix(p.get('nat2')), 'born': born, 'pos': p['pos'] or 'CM',
             'allpos': [x for x in dict.fromkeys([p['pos']] + p['poss']) if x] or ['CM'], 'st': st, 'flags': 0, 'h': 0, 'foot': '',
-            'caps': 0, 'ng': 0, 'mv': 0, 'tm': pid if pid < 10_000_000 else 0, 'fee': p['maxfee'] or 0, 'leagues': p['leagues'],
+            'caps': 0, 'ng': 0, 'mv': 0, 'tm': pid if pid < 10_000_000 else 0, 'fee': (p['maxfee'] if p['maxfee'] == p['maxfee'] else 0) or 0, 'leagues': p['leagues'],
             'retired': p.get('retired'), 'old': None,
         }
         pr = prof.get(pid)
@@ -208,12 +227,16 @@ def main():
             if str(pr.current_club_name) == 'Retired' and not rec['retired']:
                 rec['retired'] = max(s[2] for s in st)
         if pid in nat:
-            rec['caps'], rec['ng'] = nat[pid][1], nat[pid][2]
-            if not rec['nat']:
-                rec['nat'] = cfix(nat[pid][0])
+            ents = nat[pid]
+            mine = [e for e in ents if cfix(e[0]) == rec['nat']]
+            e = max(mine or ents, key=lambda e: e[1])
+            rec['caps'], rec['ng'] = e[1], e[2]
+            if not rec['nat'] or not mine:
+                rec['nat'] = cfix(e[0]) if e[1] >= 3 or not rec['nat'] else rec['nat']
         if pid in mv:
             rec['mv'] = mv[pid][0]
-        rec['mv'] = max(rec['mv'], p.get('maxmv') or 0)
+        mm = p.get('maxmv') or 0
+        rec['mv'] = max(rec['mv'], mm if mm == mm else 0)
         out.append(rec)
     print('jogadores TM', len(out))
 
@@ -309,6 +332,11 @@ def main():
                 if q['nat'] == dnat and (q['born'] is None or q['born'] >= 1980) and not q['retired']:
                     cands.append(k)
         cands = sorted(set(cands), key=lambda k: -(out[k]['st'][-1][3] if out[k]['st'] else 0))
+        same = [k for k in cands if out[k]['st'] and out[k]['st'][-1][0] == 'g' and out[k]['st'][-1][1] == g]
+        if len(cands) > 1:
+            cands = same if same else [k for k in cands if out[k]['st'][-1][3] >= 2024]
+            if len(cands) != 1:
+                continue
         if cands:
             q = out[cands[0]]
             q['draft_r'] = rr
@@ -328,6 +356,38 @@ def main():
             })
             added += 1
     print('elencos 26/27: novos', added, 'mudaram de clube', moved)
+
+    # ---------------------------------------------------------------- nacionalidade que falta: país dos clubes (carreira toda num país só)
+    guessed = 0
+    for q in out:
+        if q['nat']:
+            continue
+        yrs = collections.Counter()
+        for s_ in q['st']:
+            if s_[0] == 'g':
+                yrs[cfix(cinfo[s_[1]]['country'])] += s_[3] - s_[2] + 1
+        yrs.pop(None, None)
+        if yrs:
+            c, n = yrs.most_common(1)[0]
+            if n / sum(yrs.values()) >= 0.85:
+                q['nat'] = c
+                q['flags'] |= 64
+                guessed += 1
+    print('nacionalidade pelo país dos clubes', guessed)
+
+    # ---------------------------------------------------------------- limpa passagens: datas coerentes, sem sobreposição no mesmo clube
+    for q in out:
+        st = []
+        for s_ in sorted(q['st'], key=lambda s_: (s_[2], s_[3])):
+            if s_[3] < s_[2]:
+                s_[3] = s_[2]
+            prev = next((p for p in reversed(st) if p[0] == s_[0] and p[1] == s_[1] and s_[2] <= p[3] + (0 if (s_[4] | p[4]) & 4 else 1)), None)
+            if prev is not None and (prev is st[-1] or s_[2] <= prev[3]):
+                prev[3] = max(prev[3], s_[3])
+                prev[4] = (prev[4] & 1) | (s_[4] & 2) if s_[3] >= prev[3] else prev[4]
+                continue
+            st.append(list(s_))
+        q['st'] = st
 
     # ---------------------------------------------------------------- nota MUNDOFUT e marcas
     BIG = {13, 53, 31, 19, 16}
@@ -351,7 +411,7 @@ def main():
         if q['mv']: sig.append(62 + 12.5 * math.log10(1 + q['mv']))
         if q['fee']: sig.append(61 + 11.5 * math.log10(1 + q['fee']))
         if q['caps']: sig.append(58 + 9 * math.log10(1 + q['caps']) + 3.5 * math.log10(1 + q['ng']))
-        sig.append(56 + 1.6 * min(yrs_big, 14) + 1.2 * min(yrs_bigclub, 10))
+        sig.append(54 + 1.1 * min(yrs_big, 14) + 0.9 * min(yrs_bigclub, 10))
         if q.get('oldr'): sig.append(q['oldr'])
         if q.get('draft_r'): sig.append(q['draft_r'] - 1)
         r = max(sig)
@@ -365,14 +425,16 @@ def main():
             q['flags'] |= 32
         if q['r'] >= 84 or q['caps'] >= 60 or q['flags'] & 4 or (q.get('oldflags') or 0) & 2:
             q['flags'] |= 2
-        if q['flags'] & 32 and (q['r'] >= 87 or q['flags'] & 4 or (q.get('oldflags') or 0) & 1):
-            q['flags'] |= 1
-        if q['flags'] & 32 and q['r'] >= 85 and q['caps'] >= 50:
+        of = q.get('oldflags') or 0
+        if of & 1 and (q['flags'] & 32 or (q['born'] or 2000) < 1990):
+            q['flags'] |= 128  # lenda da curadoria (as maiores)
+        if q['flags'] & 32 and (of & 1 or q['flags'] & 4 or (q.get('oldr') or 0) >= 86 or q['mv'] >= 50
+                                or (q['caps'] >= 70 and q['ybc'] >= 4) or (q['caps'] >= 40 and q['ybc'] >= 8)):
             q['flags'] |= 1
 
     # ---------------------------------------------------------------- separa: base principal x estendida
     def core_ok(q):
-        return q['old'] is not None or q.get('draft_r') or q['r'] >= 71 or q['caps'] >= 8 or q['ybig'] >= 4
+        return q['old'] is not None or (q.get('draft_r') or 0) >= 74 or q['r'] >= 76 or q['caps'] >= 25 or q['ybig'] >= 9 or q['ybc'] >= 5
     core = [q for q in out if core_ok(q)]
     ext = [q for q in out if not core_ok(q)]
     print('principal', len(core), 'estendida', len(ext))
@@ -388,18 +450,49 @@ def main():
                 key = ('old', x)
                 if key not in g2c:
                     g2c[key] = len(clubs)
-                    clubs.append([on, ol, None, None])
+                    clubs.append([on, ol, None, None, None, True])
                 ci = g2c[key]
             res.append([ci, int(a), int(b), int(f)] if f else [ci, int(a), int(b)])
         return res
 
     def row(q):
         return [q['n'], q['alias'][:3], q['fn'] or q['n'], q['nat'] or '', q['born'] or 0, q['pos'], '/'.join(q['allpos'][:3]), q['r'], stints(q),
-                q['flags'], q['h'] or 0, q['foot'] or '', 0, q['caps'], q['ng'], round(q['mv'], 1), q['tm']]
+                q['flags'], q['h'] or 0, q['foot'] or '', 0, q['caps'], q['ng'], round(q['mv'], 1), q['tm'], round(q['fee'] or 0, 1)]
 
     core.sort(key=lambda q: -q['r'])
     core_rows = [row(q) for q in core]
+    old2new = {q['old']: k for k, q in enumerate(core) if q['old'] is not None}
+    def club_new(oc):
+        g = old2g.get(oc)
+        if g is not None:
+            return club_index(g)
+        key = ('old', oc)
+        if key not in g2c:
+            on, ol = old_clubs[oc]
+            g2c[key] = len(clubs)
+            clubs.append([on, ol, None, None, None, True])
+        return g2c[key]
+    games = json.load(open(os.path.join(ROOT, 'tools', 'legacy_games.json')))
+    games['statdle'] = [[old2new[r[0]]] + r[1:] for r in games['statdle'] if r[0] in old2new]
+    games['cards'] = [[old2new[r[0]], r[1], r[2], r[3], club_new(r[4])] + r[5:] for r in games['cards'] if r[0] in old2new]
+    games['brasil'] = [r[:2] + [club_new(r[2])] + r[3:] for r in games['brasil']]
+    games['coaches'] = [r[:1] + [club_new(r[1])] + r[2:] for r in games['coaches']]
+    json.dump(games, open(os.path.join(OUT, 'games.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
+    tro = json.load(open(os.path.join(ROOT, 'tools', 'legacy_trophies.json')))
+    for k in ('lib', 'euro'):
+        tro[k] = {str(old2new[int(i)]): v for i, v in tro.get(k, {}).items() if int(i) in old2new}
+    json.dump(tro, open(os.path.join(OUT, 'trophies.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
+    print('games/trophies remapeados', len(games['statdle']), len(games['cards']))
     ext_rows = [[q['n'], q['born'] or 0, q['nat'] or '', q['pos'], q['r'], [s for s in stints(q)]] for q in ext]
+    # nomes repetidos (ex.: dois 'Nacional'): acrescenta estado ou país
+    cnt = collections.Counter(c[0] for c in clubs)
+    for c in clubs:
+        if cnt[c[0]] > 1 and not c[5] and c[4] is not None:
+            full = cinfo[c[4]]['names'][0]
+            nm = short(full, keep_state=True)
+            if nm == c[0]:
+                nm = c[0] + ' (' + (c[2] or '?')[:3].upper() + ')'
+            c[0] = nm
     for lid in {c[1] for c in clubs}:
         if lid not in leagues and lid:
             leagues[lid] = 'Outra'

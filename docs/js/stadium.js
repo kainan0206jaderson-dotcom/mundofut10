@@ -22,32 +22,145 @@
     try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; }
   };
 
+  // ------------------------------------------------------------------ ruído (montanha)
+  function makeNoise(seed) {
+    const rnd = MF.rng(seed), P = new Uint8Array(512), G = [];
+    for (let i = 0; i < 256; i++) { P[i] = i; const a = rnd() * Math.PI * 2; G.push([Math.cos(a), Math.sin(a)]); }
+    for (let i = 255; i > 0; i--) { const j = (rnd() * (i + 1)) | 0; [P[i], P[j]] = [P[j], P[i]]; }
+    for (let i = 0; i < 256; i++) P[i + 256] = P[i];
+    const fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+    const grad = (h, x, y) => { const g = G[h & 255]; return g[0] * x + g[1] * y; };
+    const n2 = (x, y) => {
+      const X = Math.floor(x), Y = Math.floor(y), xf = x - X, yf = y - Y, xi = X & 255, yi = Y & 255;
+      const u = fade(xf), v = fade(yf);
+      const a = grad(P[P[xi] + yi], xf, yf), b = grad(P[P[xi + 1] + yi], xf - 1, yf), c = grad(P[P[xi] + yi + 1], xf, yf - 1), d = grad(P[P[xi + 1] + yi + 1], xf - 1, yf - 1);
+      return (a + (b - a) * u) + ((c + (d - c) * u) - (a + (b - a) * u)) * v; // −0.7..0.7
+    };
+    const fbm = (x, y, o) => { let s = 0, a = 0.5, f = 1; for (let i = 0; i < (o || 5); i++) { s += a * n2(x * f, y * f); f *= 2.03; a *= 0.5; } return s; };
+    const ridged = (x, y, o) => { let s = 0, a = 0.5, f = 1, w = 1; for (let i = 0; i < (o || 5); i++) { let r = 1 - Math.abs(n2(x * f, y * f) * 1.4); r *= r * w; w = Math.min(1, r * 1.6); s += a * r; f *= 2.1; a *= 0.5; } return s; };
+    return { n2, fbm, ridged };
+  }
+
+  // montanha rochosa: o estádio fica num platô no cume; as encostas descem e somem no mar de nuvens
+  const SUMMIT = 1.075;   // borda do platô (em raios do estádio)
+  const CLOUD_Y = -150;   // nível do mar de nuvens
+  function mountainGeometry(T, A, B, mobile) {
+    const N = makeNoise('montanha-mf10');
+    const RINGS = mobile ? 84 : 130, SEG = mobile ? 200 : 320, EMAX = 26;
+    const pos = [], idx = [], ee = [];
+    const E0 = 1.13, E1 = 1.5, E2 = 1.64, E3 = 2.25, E4 = 4.3;
+    // perfil: praça de concreto, gramado, beirada, paredão quase vertical, encosta de pedras soltas, base larga sob as nuvens
+    const prof = (e) => {
+      if (e <= E1) return -0.35;
+      if (e <= E2) { const t = (e - E1) / (E2 - E1); return -0.35 - 4 * t * t; }
+      if (e <= E3) { const t = (e - E2) / (E3 - E2); return -4.35 - 78 * Math.pow(t, 0.55); }
+      if (e <= E4) { const t = (e - E3) / (E4 - E3); return -82.35 - 105 * Math.pow(t, 0.9); }
+      return -187.35 - 520 * Math.pow((e - E4) / (EMAX - E4), 0.62);
+    };
+    const ring = (i) => (i === 0 ? 0.97 : i === 1 ? E0 : i === 2 ? 1.3 : E1 + (EMAX - E1) * Math.pow((i - 3) / (RINGS - 3), 2.2));
+    for (let i = 0; i <= RINGS; i++) {
+      const e0 = ring(i);
+      for (let j = 0; j < SEG; j++) {
+        const a = (j / SEG) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+        // contrafortes radiais e vales: o raio efetivo varia com o ângulo
+        const spur = N.fbm(ca * 1.4 + 7.1, sa * 1.4 - 3.3, 4) * 0.7 + (N.ridged(ca * 2.6 + 1.7, sa * 2.6 + 9.4, 4) - 0.35) * 0.5;
+        const k0 = Math.max(0, Math.min(1, (e0 - E1) * 1.6));
+        const rim = (N.fbm(ca * 3.1 + 2.2, sa * 3.1 + 5.5, 4)) * 0.16;            // beirada irregular
+        const e = e0 <= E1 - 0.04 ? e0 : e0 * (1 - rim * Math.min(1, (e0 - E1 + 0.04) * 6)) + (e0 - E1) * spur * k0;
+        const x = ca * A * e0, z = sa * B * e0;
+        let y = prof(e);
+        if (e0 > E2) {
+          const k = Math.min(1, (e0 - E2) / 0.7);
+          y += (N.ridged(x * 0.011, z * 0.011, 6) - 0.42) * 46 * k;                // cristas e ravinas
+          y += N.fbm(x * 0.06, z * 0.06, 3) * 7 * k;                                // pedras
+          // bancadas de rocha (estratos) para dar paredões
+          const step = 14, tt = y / step, fl = Math.floor(tt), fr = tt - fl;
+          y = (fl + Math.pow(fr, 2.6)) * step * 0.3 + y * 0.7;
+        } else if (e0 > E0) {
+          y += N.fbm(x * 0.03, z * 0.03, 3) * 0.6 * Math.min(1, (e0 - E0) * 4);
+          // afloramentos de rocha perto da beirada
+          const out = N.ridged(x * 0.05 + 11, z * 0.05 - 4, 3);
+          if (e > E1 - 0.12 && out > 0.62) y += (out - 0.62) * 10;
+        }
+        pos.push(x, y, z); ee.push(e0);
+      }
+    }
+    for (let i = 0; i < RINGS; i++) {
+      const b0 = i * SEG, b1 = (i + 1) * SEG;
+      for (let j = 0; j < SEG; j++) { const j1 = (j + 1) % SEG; idx.push(b0 + j, b0 + j1, b1 + j, b0 + j1, b1 + j1, b1 + j); }
+    }
+    const gm = new T.BufferGeometry();
+    gm.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    gm.setIndex(idx);
+    gm.computeVertexNormals();
+    // cores pela inclinação: plano = grama/neve, íngreme = rocha; praça de concreto em volta do estádio
+    const nrm = gm.attributes.normal.array, col = new Float32Array(pos.length);
+    const c = new T.Color(), tmp = new T.Color();
+    const PLAZA = new T.Color(0x5e5b55), GRASS = new T.Color(0x41592a), GRASS2 = new T.Color(0x2b3d1b), DRY = new T.Color(0x5e5840);
+    const ROCK = new T.Color(0x4f4943), ROCK_D = new T.Color(0x2b2724), ROCK_W = new T.Color(0x695e52), SNOW = new T.Color(0xc4ccd6), SCREE = new T.Color(0x57514a);
+    for (let v = 0; v < pos.length / 3; v++) {
+      const x = pos[v * 3], y = pos[v * 3 + 1], z = pos[v * 3 + 2], e0 = ee[v], ny = nrm[v * 3 + 1];
+      const nn = N.fbm(x * 0.035 + 40, z * 0.035, 4), fine = N.fbm(x * 0.2, z * 0.2, 2);
+      if (e0 <= E0 + 0.01) c.copy(PLAZA).multiplyScalar(0.92 + fine * 0.2);
+      else if (ny > 0.8 && e0 < E2 + 0.02 || e0 < E1) c.copy(GRASS).lerp(GRASS2, Math.min(1, Math.max(0, 0.45 + nn * 1.2))).lerp(DRY, Math.max(0, (e0 - E1) / (E2 - E1)) * 0.5);
+      else {
+        const steep = 1 - Math.min(1, Math.max(0, (ny - 0.35) / 0.45));       // 1 = parede
+        const strata = 0.5 + 0.5 * Math.sin(y * 0.55 + nn * 6);
+        c.copy(ROCK_D).lerp(ROCK, strata * 0.8 + fine * 0.3).lerp(ROCK_W, Math.max(0, nn) * 0.9);
+        tmp.copy(SCREE).lerp(GRASS2, Math.max(0, nn + 0.15) * (y > -60 ? 0.9 : 0.4));
+        c.lerp(tmp, (1 - steep) * 0.75);
+        // neve: só nas saliências planas da parte alta
+        const snow = (1 - steep) * Math.max(0, Math.min(1, (y + 115) / 60)) * Math.max(0, Math.min(1, (nn + fine * 0.5 + 0.05) * 4));
+        if (y < -14) c.lerp(SNOW, Math.min(0.8, snow * 0.9));
+      }
+      col[v * 3] = c.r; col[v * 3 + 1] = c.g; col[v * 3 + 2] = c.b;
+    }
+    gm.setAttribute('color', new T.BufferAttribute(col, 3));
+    return gm;
+  }
+
   // ------------------------------------------------------------------ texturas desenhadas em canvas
   // nuvem cúmulo sombreada: topo iluminado, base azulada, contorno em couve-flor
   function puffTexture(T, seed) {
-    const W = 256, H = 192;
+    // cúmulo mais natural: muitas bolhas pequenas e macias (base reta, topo em couve-flor), bordas desfiadas, sombra azulada embaixo
+    const W = 512, H = 320;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const g = c.getContext('2d'); const rnd = MF.rng('cumulo:' + seed);
+    const g = c.getContext('2d'); const rnd = MF.rng('cumulo2:' + seed);
+    const N = makeNoise('cumulo-ruido:' + seed);
+    const base = H * 0.8;
     const blobs = [];
-    for (let i = 0; i < 9; i++) { const x = 52 + rnd() * 152, rr = 30 + rnd() * 26 * (1 - Math.abs(x - 128) / 170); blobs.push([x, 150 - rr * (0.5 + rnd() * 0.45), rr]); }
-    for (let i = 0; i < 26; i++) { const b = blobs[(rnd() * blobs.length) | 0], a = -Math.PI * (0.1 + rnd() * 0.8), d = b[2] * (0.55 + rnd() * 0.4); blobs.push([b[0] + Math.cos(a) * d, b[1] + Math.sin(a) * d, b[2] * (0.32 + rnd() * 0.3)]); }
-    // corpo
+    // silhueta: altura do topo varia ao longo da largura (2–3 torres)
+    const towers = [0.3 + rnd() * 0.15, 0.5 + rnd() * 0.1, 0.68 + rnd() * 0.12].map((x) => [x * W, 0.45 + rnd() * 0.5]);
+    const top = (x) => towers.reduce((m, [tx, th]) => Math.max(m, th * Math.exp(-Math.pow((x - tx) / (W * 0.16), 2))), 0.18);
+    for (let i = 0; i < 260; i++) {
+      const x = W * (0.1 + rnd() * 0.8), ht = top(x) * (base - 20);
+      const y = base - rnd() * ht, r = 10 + rnd() * 26 * (0.6 + ht / base);
+      if (y + r * 0.4 > base + 6) continue;
+      blobs.push([x, y, r]);
+    }
+    blobs.sort((p, q) => q[1] - p[1]);
     for (const [x, y, r] of blobs) {
-      const gr = g.createRadialGradient(x - r * 0.25, y - r * 0.35, r * 0.08, x, y, r);
-      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.62, 'rgba(250,251,255,.92)'); gr.addColorStop(0.86, 'rgba(240,244,252,.45)'); gr.addColorStop(1, 'rgba(235,240,250,0)');
+      const gr = g.createRadialGradient(x - r * 0.2, y - r * 0.3, r * 0.05, x, y, r);
+      gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(0.55, 'rgba(250,251,255,.7)'); gr.addColorStop(1, 'rgba(240,244,252,0)');
       g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
     }
-    g.globalCompositeOperation = 'source-atop';
-    // sombra própria: base e lado oposto à luz em azul acinzentado
-    const sh = g.createLinearGradient(0, H * 0.3, 0, H * 0.92);
-    sh.addColorStop(0, 'rgba(120,140,182,0)'); sh.addColorStop(0.55, 'rgba(120,140,182,.32)'); sh.addColorStop(1, 'rgba(92,110,150,.62)');
-    g.fillStyle = sh; g.fillRect(0, 0, W, H);
-    const sd = g.createLinearGradient(W * 0.25, 0, W, 0);
-    sd.addColorStop(0, 'rgba(110,128,170,0)'); sd.addColorStop(1, 'rgba(110,128,170,.22)');
-    g.fillStyle = sd; g.fillRect(0, 0, W, H);
+    // bordas desfiadas e transparência irregular (ruído)
+    const img = g.getImageData(0, 0, W, H), d = img.data;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const k = (y * W + x) * 4, a = d[k + 3] / 255;
+      if (!a) continue;
+      const n = N.fbm(x * 0.018, y * 0.018, 4) + 0.35 * N.fbm(x * 0.07, y * 0.07, 2);
+      const aa = Math.min(1, Math.max(0, (a - 0.08 + n * 0.55) * 1.25));
+      const below = Math.max(0, Math.min(1, (y - base * 0.55) / (base * 0.45)));
+      const shade = 1 - 0.38 * below - 0.12 * Math.max(0, -n);
+      d[k] = Math.round(d[k] * shade * 0.97); d[k + 1] = Math.round(d[k + 1] * shade * 0.985); d[k + 2] = Math.round(d[k + 2] * (shade * 0.9 + 0.1));
+      d[k + 3] = Math.round(aa * 255 * (y > base ? Math.max(0, 1 - (y - base) / 10) : 1));
+    }
+    g.putImageData(img, 0, 0);
     // luz quente no topo
-    const hl = g.createRadialGradient(W * 0.38, H * 0.2, 4, W * 0.38, H * 0.2, W * 0.5);
-    hl.addColorStop(0, 'rgba(255,252,240,.55)'); hl.addColorStop(1, 'rgba(255,252,240,0)');
+    g.globalCompositeOperation = 'source-atop';
+    const hl = g.createRadialGradient(W * 0.42, H * 0.15, 4, W * 0.42, H * 0.2, W * 0.45);
+    hl.addColorStop(0, 'rgba(255,250,236,.45)'); hl.addColorStop(1, 'rgba(255,250,236,0)');
     g.fillStyle = hl; g.fillRect(0, 0, W, H);
     const tx = new T.CanvasTexture(c);
     return tx;
@@ -358,28 +471,40 @@
         uFogD: { value: 0.00078 }, uGlowAmt: { value: 0 }, uSilver: { value: 0.3 }, uShadowAmt: { value: 0.3 } },
       vertexShader: SEA_VS, fragmentShader: SEA_FS, side: T.DoubleSide,
     }));
-    sea.position.y = -24; sea.frustumCulled = false; scene.add(sea);
+    sea.position.y = CLOUD_Y; sea.frustumCulled = false; scene.add(sea);
     const ground = sea;
+    // a montanha: platô de grama no cume, paredões de rocha com neve nas reentrâncias, base engolida pelas nuvens
+    const OUT = 1 + 24 * 0.024 + 0.04; // raio externo da fachada (em raios do gramado)
+    const mountain = new T.Mesh(mountainGeometry(T, SA * OUT, SB * OUT, mobile), new T.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.96, metalness: 0 }));
+    mountain.position.y = -0.05; scene.add(mountain); S._mountainMat = mountain.material;
+    // o mar de nuvens abraça a montanha onde ela o encontra
+    stad.set(SA * OUT * 4.1, SB * OUT * 4.1);
     // cúmulos (sprites sombreados) abraçando a base do estádio e torres de nuvem no horizonte
-    const puffTxs = [puffTexture(T, 1), puffTexture(T, 2), puffTexture(T, 3)];
+    const puffTxs = [puffTexture(T, 1), puffTexture(T, 2), puffTexture(T, 3), puffTexture(T, 4)];
     const puffs = [];
     const addPuff = (x, y, z, size, op, fog) => {
-      const m = new T.SpriteMaterial({ map: puffTxs[(rnd() * 3) | 0], transparent: true, depthWrite: false, opacity: op, fog: fog !== false });
-      const sp = new T.Sprite(m); sp.position.set(x, y, z); sp.scale.set(size * (rnd() < 0.5 ? 1 : -1), size * 0.72, 1);
+      const m = new T.SpriteMaterial({ map: puffTxs[(rnd() * puffTxs.length) | 0], transparent: true, depthWrite: false, opacity: op, fog: fog !== false });
+      const sp = new T.Sprite(m); sp.position.set(x, y, z); sp.scale.set(size * (rnd() < 0.5 ? 1 : -1), size * 0.625, 1);
       sp.userData = { y, ph: rnd() * 6.283 };
       scene.add(sp); puffs.push(sp);
     };
-    for (let i = 0, n = mobile ? 46 : 66; i < n; i++) {
-      const a = (i / n) * 6.283 + (rnd() - 0.5) * 0.16, rr = 1.68 + Math.pow(rnd(), 2) * 0.62, size = 46 + Math.pow(rnd(), 1.5) * 96;
-      addPuff(Math.cos(a) * rr * SA, -12 + rnd() * 8 + size * 0.04, Math.sin(a) * rr * SB, size, 0.96);
+    // cúmulos que abraçam a montanha no nível das nuvens
+    for (let i = 0, n = mobile ? 50 : 76; i < n; i++) {
+      const a = (i / n) * 6.283 + (rnd() - 0.5) * 0.14, rr = 6.3 + Math.pow(rnd(), 2) * 1.8, size = 90 + Math.pow(rnd(), 1.5) * 170;
+      addPuff(Math.cos(a) * rr * SA, CLOUD_Y + 6 + rnd() * 14 + size * 0.05, Math.sin(a) * rr * SB, size, 0.95);
+    }
+    // véus de nuvem subindo pelos paredões (meio transparentes)
+    for (let i = 0, n = mobile ? 14 : 24; i < n; i++) {
+      const a = rnd() * 6.283, rr = 4.4 + rnd() * 1.6, size = 60 + rnd() * 90;
+      addPuff(Math.cos(a) * rr * SA, CLOUD_Y + 40 + rnd() * 45, Math.sin(a) * rr * SB, size, 0.42 + rnd() * 0.25);
     }
     for (let i = 0, n = mobile ? 26 : 40; i < n; i++) {
-      const a = rnd() * 6.283, rr = 230 + Math.pow(rnd(), 0.8) * 900, size = 110 + rnd() * 200;
-      addPuff(Math.cos(a) * rr, -8 + size * 0.12, Math.sin(a) * rr * 1.1, size, 1);
+      const a = rnd() * 6.283, rr = 520 + Math.pow(rnd(), 0.8) * 1000, size = 140 + rnd() * 240;
+      addPuff(Math.cos(a) * rr, CLOUD_Y + 10 + size * 0.12, Math.sin(a) * rr * 1.1, size, 1);
     }
     for (let i = 0, n = mobile ? 12 : 18; i < n; i++) {
-      const a = (i / n) * 6.283 + rnd() * 0.3, rr = 1200 + rnd() * 1500, size = 420 + rnd() * 520;
-      addPuff(Math.cos(a) * rr, -20 + size * 0.22, Math.sin(a) * rr, size, 1);
+      const a = (i / n) * 6.283 + rnd() * 0.3, rr = 1300 + rnd() * 1500, size = 460 + rnd() * 560;
+      addPuff(Math.cos(a) * rr, CLOUD_Y + size * 0.22, Math.sin(a) * rr, size, 1);
     }
     // brilho do estádio visto de longe
     const halo = new T.Sprite(new T.SpriteMaterial({ map: glowTexture(T, 'rgba(255,225,150,.55)', 'rgba(255,210,120,.18)'), transparent: true, depthWrite: false, blending: T.AdditiveBlending, fog: false }));
@@ -606,6 +731,7 @@
     S._facade.emissiveIntensity = 0.12 + 0.75 * lightsOn;
     S._facade.color.copy(mix(0x8d8a80, 0xd8d4c8, day));
     S._baseMat.color.copy(mix(0x1a1916, 0x56544c, day));
+    if (S._mountainMat) S._mountainMat.color.copy(mix(0x2c3344, 0xa9a9a9, day).lerp(new T.Color(0xd09a78), dusk * 0.3));
     S.hemi.intensity = 0.55 + 0.55 * day;
     S.hemi.color.copy(mix(0x9fb4ff, 0xdfeeff, day));
     S.key.intensity = 0.9 + 0.5 * day;

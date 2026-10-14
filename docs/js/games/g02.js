@@ -19,20 +19,23 @@
   MF.registerGame({
     num: 2, slug: 'lista-ballon-dor',
     rules: {
-      pt: ['Um ano da Bola de Ouro é sorteado (1990 a 2025; em 2020 não houve prêmio).', 'Descubra os 10 primeiros colocados. A bandeira de cada um aparece como dica.', 'Palpites livres: erre quantas vezes quiser. Termine a lista ou toque em Desistir. Empates no 10º lugar também contam.'],
-      en: ['A Ballon d’Or year is drawn (1990 to 2025; there was no award in 2020).', 'Find the top 10. Each player’s flag is shown as a hint.', 'Unlimited guesses: miss as often as you like. Finish the list or tap Give up. Ties for 10th place count too.'],
-      es: ['Se sortea un año del Balón de Oro (1990 a 2025; en 2020 no hubo premio).', 'Descubre a los 10 primeros. La bandera de cada uno aparece como pista.', 'Intentos libres: falla cuantas veces quieras. Completa la lista o toca Rendirse. Los empates en el 10.º puesto también cuentan.'],
+      pt: ['Um ano da Bola de Ouro é sorteado (1990 a 2025; em 2020 não houve prêmio). Descubra os 10 primeiros colocados. Empates no 10º lugar também contam.', 'Palpites livres: erre quantas vezes quiser. Termine a lista ou toque em Desistir.', 'Fácil: anos recentes, com a bandeira e o clube de cada um como dica. Normal: a bandeira como dica. Difícil: qualquer ano, sem dicas. Lendário: anos de 1990 a 2007, sem dicas e no máximo 5 erros.'],
+      en: ['A Ballon d’Or year is drawn (1990 to 2025; there was no award in 2020). Find the top 10. Ties for 10th place count too.', 'Unlimited guesses: miss as often as you like. Finish the list or tap Give up.', 'Easy: recent years, with each player’s flag and club as hints. Normal: the flag as a hint. Hard: any year, no hints. Legendary: 1990 to 2007, no hints and at most 5 misses.'],
+      es: ['Se sortea un año del Balón de Oro (1990 a 2025; en 2020 no hubo premio). Descubre a los 10 primeros. Los empates en el 10.º puesto también cuentan.', 'Intentos libres: falla cuantas veces quieras. Completa la lista o toca Rendirse.', 'Fácil: años recientes, con la bandera y el club de cada uno como pista. Normal: la bandera como pista. Difícil: cualquier año, sin pistas. Legendario: de 1990 a 2007, sin pistas y como máximo 5 errores.'],
     },
-    options: [MF.timerOpt([0, 120, 60])],
+    options: [MF.levelOpt(), MF.timerOpt([0, 120, 60])],
     preview() {
       return h('div', { class: 'pv-list' }, [1, 2, 3].map((n) => h('span', null, h('b', null, n), '· · · · ·')));
     },
     play(board, ctx) {
       const { games, P } = MF.data;
-      const years = Object.keys(games.ballon).sort();
-      const year = years[MF.daily('g2-ballon', years.length)];
-      const rows = games.ballon[year];
       const st = ctx.state;
+      const lvl = MF.level(st);
+      const RANGE = { easy: [2008, 2025], normal: [1998, 2025], hard: [1990, 2025], legend: [1990, 2007] }[lvl];
+      const years = Object.keys(games.ballon).filter((y) => +y >= RANGE[0] && +y <= RANGE[1]).sort();
+      const year = years[MF.daily('g2-ballon2:' + lvl, years.length)];
+      const rows = games.ballon[year];
+      const MAXMISS = lvl === 'legend' ? 5 : Infinity;
       st.found = st.found || [];
       st.miss = st.miss || [];
       const LIVES = 3;
@@ -61,7 +64,7 @@
             h('span', { class: 'bo-club' }, show ? [MF.crest(r[3], 16), r[3]] : ''),
             hasPts ? h('span', { class: 'bo-pts' }, show && r[4] != null ? (pct ? r[4].toFixed(2) + '%' : r[4] + ' pts') : '') : null));
         });
-        lives.textContent = t('misses') + ': ' + st.miss.length;
+        lives.textContent = t('misses') + ': ' + st.miss.length + (MAXMISS < Infinity ? '/' + MAXMISS : '');
         found.textContent = t('found') + ': ' + st.found.length + '/' + rows.length;
       }
       function guess(key, label) {
@@ -80,6 +83,7 @@
         ctx.save();
         MF.toast(t('wrong') + ': ' + label, 'bad');
         MF.anim(list, 'shake');
+        if (st.miss.length >= MAXMISS) return end();
         paint();
       }
       function end() {

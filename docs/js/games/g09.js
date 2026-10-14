@@ -22,20 +22,22 @@
   MF.registerGame({
     num: 9, slug: 'jogo-da-distancia',
     rules: {
-      pt: ['Descubra o craque secreto. Cada palpite recebe uma nota de −99 a 100 conforme a proximidade.', 'Pesam seleção, posição, clubes em comum (mais ainda se foram companheiros), ligas e geração.', 'Quanto mais perto de 100, mais quente. Palpites livres: continue até acertar ou toque em Desistir.'],
-      en: ['Find the secret star. Each guess gets a score from −99 to 100 based on how close it is.', 'Nation, position, shared clubs (more if they were teammates), leagues and generation all count.', 'The closer to 100, the warmer. Unlimited guesses: keep going until you get it or tap Give up.'],
-      es: ['Descubre al crack secreto. Cada intento recibe una nota de −99 a 100 según la cercanía.', 'Cuentan selección, posición, clubes en común (más si fueron compañeros), ligas y generación.', 'Cuanto más cerca de 100, más caliente. Intentos libres: sigue hasta acertar o toca Rendirse.'],
+      pt: ['Descubra o jogador secreto (de 1990 para cá). Cada palpite recebe uma nota de −99 a 100 conforme a proximidade.', 'Pesam seleção, posição, clubes em comum (mais ainda se foram companheiros), ligas e geração. Quanto mais perto de 100, mais quente.', 'Fácil: craques muito famosos, com a seleção como dica e os motivos de cada nota. Normal: jogadores famosos, com os motivos. Difícil: jogadores conhecidos, só a nota. Lendário: qualquer jogador relevante, só a nota e no máximo 15 palpites.'],
+      en: ['Find the secret player (from 1990 on). Each guess gets a score from −99 to 100 based on how close it is.', 'Nation, position, shared clubs (more if they were teammates), leagues and generation all count. The closer to 100, the warmer.', 'Easy: very famous stars, with the nation as a hint and the reasons for each score. Normal: famous players, with reasons. Hard: known players, score only. Legendary: any relevant player, score only and at most 15 guesses.'],
+      es: ['Descubre al jugador secreto (de 1990 en adelante). Cada intento recibe una nota de −99 a 100 según la cercanía.', 'Cuentan selección, posición, clubes en común (más si fueron compañeros), ligas y generación. Cuanto más cerca de 100, más caliente.', 'Fácil: cracks muy famosos, con la selección como pista y los motivos de cada nota. Normal: jugadores famosos, con los motivos. Difícil: jugadores conocidos, solo la nota. Legendario: cualquier jugador relevante, solo la nota y como máximo 15 intentos.'],
     },
-    options: [
-      MF.timerOpt([0, 300, 180]),
-    ],
+    options: [MF.levelOpt(), MF.timerOpt([0, 300, 180])],
     preview() { return h('div', { class: 'pv-dist' }, [92, 46, -12].map((v) => h('span', null, h('b', { style: { width: (v + 100) / 2 + '%' } }), v))); },
     play(board, ctx) {
       const { P } = MF.data;
-      const pool = P.filter((p) => p.famous && p.st.length >= 2).map((p) => p.i);
-      const target = P[pool[MF.daily('g9-distancia', pool.length)]];
-      const tm = MF.teammates(target.i);
       const st = ctx.state;
+      const lvl = MF.level(st);
+      const MIN = { easy: 88, normal: 84, hard: 80, legend: 76 }[lvl];
+      const MAX_G = lvl === 'legend' ? 15 : Infinity;
+      const pool = P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && p.r >= MIN && (lvl !== 'easy' || p.famous) && p.st.length >= 2 && !p.natGuess).map((p) => p.i);
+      const target = P[pool[MF.daily('g9-dist2:' + lvl, pool.length)]];
+      const tm = MF.teammates(target.i);
+      const why = lvl === 'easy' || lvl === 'normal';
       st.guesses = st.guesses || [];
       const list = h('ol', { class: 'dist-list' });
       const left = h('span', { class: 'pill' });
@@ -44,12 +46,12 @@
       function paint(last) {
         MF.clear(list);
         const scored = st.guesses.map((g) => ({ g, ...MF.similarity(target, P[g], tm) })).sort((a, b) => b.s - a.s);
-        scored.forEach(({ g, s, why }) => list.appendChild(h('li', { class: 'dist ' + heat(s) + (g === last ? ' pop' : '') },
+        scored.forEach(({ g, s, why: whyList }) => list.appendChild(h('li', { class: 'dist ' + heat(s) + (g === last ? ' pop' : '') },
           h('span', { class: 'dist-bar', style: { width: Math.max(4, (s + 100) / 2) + '%' }, 'aria-hidden': 'true' }),
           h('span', { class: 'dist-name' }, MF.photo(P[g].n, P[g].nat, 28), MF.flag(P[g].nat), P[g].n),
-          h('span', { class: 'dist-why' }, why.map((w) => t(w)).join(' · ')),
+          h('span', { class: 'dist-why' }, why ? whyList.map((w) => t(w)).join(' · ') : ''),
           h('strong', { class: 'dist-s' }, s))));
-        left.textContent = t('attempts') + ': ' + st.guesses.length;
+        left.textContent = t('attempts') + ': ' + st.guesses.length + (MAX_G < Infinity ? '/' + MAX_G : '');
         best.textContent = t('closest') + ': ' + (scored.length ? scored[0].s : '—');
       }
       function guess(g) {
@@ -58,6 +60,7 @@
         st.guesses.push(g);
         ctx.save();
         if (g === target.i) return end(true);
+        if (st.guesses.length >= MAX_G) return end(false);
         paint(g);
       }
       function end(win) {
@@ -68,8 +71,8 @@
         ac.hidden = true;
         paint();
       }
-      const ac = MF.autocomplete({ source: MF.playerSource(), onPick: (it) => guess(it.id), extra: h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => end(false) }, t('giveUp')) });
-      board.appendChild(h('div', { class: 'bar' }, left, best, ctx.timerEl));
+      const ac = MF.autocomplete({ source: MF.playerSource((i) => MF.era(P[i])), onPick: (it) => guess(it.id), extra: h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => end(false) }, t('giveUp')) });
+      board.appendChild(h('div', { class: 'bar' }, left, best, lvl === 'easy' ? h('span', { class: 'pill' }, MF.flag(target.nat), ' ' + MF.country(target.nat)) : null, ctx.timerEl));
       board.appendChild(ac);
       board.appendChild(list);
       if (ctx.finished()) ac.hidden = true;

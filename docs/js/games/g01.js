@@ -19,12 +19,13 @@
     },
     play(board, ctx) {
       const { P, games } = MF.data;
-      const rows = games.statdle;
-      const row = rows[MF.daily('g1-statdle', rows.length)];
-      const [pi, season, league, club, apps, goals, ast, age, pos, num] = row;
-      const target = P[pi];
       const st = ctx.state;
       const lvl = MF.level(st);
+      const rows = games.statdle;
+      // cada dificuldade tem o seu jogador do dia
+      const row = rows[MF.daily('g1-statdle:' + lvl, rows.length)];
+      const [pi, season, league, club, apps, goals, ast, age, pos, num] = row;
+      const target = P[pi];
       const LOCK = lvl === 'legend' ? ['club', 'nat', 'shirt'] : lvl === 'hard' ? ['club', 'nat'] : [];
       const STEP = lvl === 'legend' ? 1 : 2;
       st.guesses = st.guesses || [];
@@ -35,7 +36,7 @@
         ['club', t('club'), club, 'club'], ['nat', t('nationality'), target.nat, 'nat'], ['pos', t('position'), MF.pos(pos)],
         ['age', t('age'), age], ['shirt', t('shirt'), num],
       ].filter(Boolean);
-      let order = MF.shuffle(all, MF.rng('g1-ordem:' + MF.today()));
+      let order = MF.shuffle(all, MF.rng('g1-ordem:' + MF.today() + ':' + lvl));
       // fácil: clube e seleção vêm primeiro e já abertos
       if (lvl === 'easy') order = [...order.filter((c) => c[0] === 'club' || c[0] === 'nat'), ...order.filter((c) => c[0] !== 'club' && c[0] !== 'nat')];
       const open = order.filter((c) => !LOCK.includes(c[0]));
@@ -99,7 +100,7 @@
         input.hidden = true;
       }
       const skipBtn = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => act(null) }, t('skip'));
-      const input = MF.autocomplete({ source: MF.playerSource(), onPick: (it) => act(it.id), extra: skipBtn });
+      const input = MF.autocomplete({ source: MF.playerSource((i) => MF.era(P[i])), onPick: (it) => act(it.id), extra: skipBtn });
       board.appendChild(h('div', { class: 'bar' }, left, ctx.timerEl));
       board.appendChild(sheet);
       if (!ctx.finished()) board.appendChild(input);

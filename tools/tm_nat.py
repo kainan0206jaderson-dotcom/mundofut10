@@ -27,9 +27,9 @@ def main():
     out = {}
     for r in n.itertuples():
         if r.team_id in senior:
-            out[int(r.player_id)] = [senior[r.team_id], int(r.matches), int(r.goals), r.career_state]
+            out.setdefault(int(r.player_id), []).append([senior[r.team_id], int(r.matches), int(r.goals), r.career_state])
     json.dump(out, open(f'{WORK}/natteam.json', 'w'))
-    top = sorted(out.items(), key=lambda kv: -kv[1][1])[:15]
+    top = sorted(out.items(), key=lambda kv: -max(x[1] for x in kv[1]))[:15]
     print(top)
     print({k: v for k, v in senior.items() if v in ('Brazil', 'Argentina', 'Italy', 'France', 'Germany', 'Spain', 'England', 'Portugal')})
 

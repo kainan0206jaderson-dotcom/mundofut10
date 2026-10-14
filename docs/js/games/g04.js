@@ -37,29 +37,33 @@
   MF.registerGame({
     num: 4, slug: 'descubra-o-card',
     rules: {
-      pt: ['Uma carta real do FIFA (FIFA 15 a EA FC 24) está escondida.', 'A primeira dica é o tipo da carta e a edição. Cada palpite errado ou pulo revela a próxima: posição e geral, idade e valor de mercado, seleção e, por último, o clube.', 'Palpites livres: depois da 5ª dica, continue tentando ou toque em Desistir. Acertou, a carta vira na tela.'],
-      en: ['A real FIFA card (FIFA 15 to EA FC 24) is hidden.', 'The first hint is the card type and edition. Each wrong guess or skip reveals the next one: position and overall, age and market value, nation and, last, the club.', 'Unlimited guesses: after the 5th hint keep trying or tap Give up. Get it right and the card flips over.'],
-      es: ['Una carta real de FIFA (FIFA 15 a EA FC 24) está oculta.', 'La primera pista es el tipo de carta y la edición. Cada fallo o salto revela la siguiente: posición y media, edad y valor de mercado, selección y, por último, el club.', 'Intentos libres: tras la 5.ª pista sigue probando o toca Rendirse. Si aciertas, la carta se da la vuelta.'],
+      pt: ['Uma carta real do FIFA / EA FC (FIFA 15 a EA FC 24) está escondida — este é o modo dedicado às cartas do videogame.', 'A primeira dica é o tipo da carta e a edição. Cada palpite errado ou pulo revela a próxima dica. Acertou, a carta vira na tela.', 'Fácil: cartas de craques (geral 86+), com seleção e posição logo no começo e palpites livres. Normal: cartas 80+, palpites livres. Difícil: qualquer carta, dicas na ordem mais difícil e até 8 palpites. Lendário: cartas abaixo de 85, o clube nunca aparece e só 4 palpites.'],
+      en: ['A real FIFA / EA FC card (FIFA 15 to EA FC 24) is hidden — this is the mode dedicated to video game cards.', 'The first hint is the card type and edition. Each wrong guess or skip reveals the next hint. Get it right and the card flips over.', 'Easy: star cards (86+ overall), with nation and position early and unlimited guesses. Normal: 80+ cards, unlimited guesses. Hard: any card, hints in the hardest order and up to 8 guesses. Legendary: cards under 85, the club never shows and only 4 guesses.'],
+      es: ['Una carta real de FIFA / EA FC (FIFA 15 a EA FC 24) está oculta — este es el modo dedicado a las cartas del videojuego.', 'La primera pista es el tipo de carta y la edición. Cada fallo o salto revela la siguiente pista. Si aciertas, la carta se da la vuelta.', 'Fácil: cartas de cracks (media 86+), con selección y posición al principio e intentos libres. Normal: cartas 80+, intentos libres. Difícil: cualquier carta, pistas en el orden más difícil y hasta 8 intentos. Legendario: cartas por debajo de 85, el club nunca aparece y solo 4 intentos.'],
     },
-    options: [MF.timerOpt([0, 90, 60])],
+    options: [MF.levelOpt(), MF.timerOpt([0, 90, 60])],
     preview() { return h('div', { class: 'fcard gold mini back', 'aria-hidden': 'true' }, h('span', null, '?')); },
     play(board, ctx) {
       const { games, P, clubs, leagues } = MF.data;
-      const cards = games.cards;
-      const card = cards[MF.daily('g4-card', cards.length)];
+      const st = ctx.state;
+      const lvl = MF.level(st);
+      const OK = { easy: (c) => c[2] >= 86, normal: (c) => c[2] >= 80, hard: () => true, legend: (c) => c[2] < 85 }[lvl];
+      const cards = games.cards.filter(OK);
+      const card = cards[MF.daily('g4-card2:' + lvl, cards.length)];
       const [pi, ver, ovr, pos, ci, val, age] = card;
       const p = P[pi];
       const club = clubs[ci];
-      const st = ctx.state;
       st.guesses = st.guesses || [];
-      const MAX = 5;
-      const hints = [
-        [t('cardType'), h('span', { class: 'tier-chip t' + MF.cardTier(ovr) }, MF.cardType(ovr) + ' · ' + MF.edition(ver))],
-        [t('position') + ' · ' + t('rating'), MF.pos(pos) + ' · ' + ovr],
-        [t('age') + ' · ' + t('value'), age + ' · ' + MF.money(val)],
-        [t('nationality'), h('span', { class: 'v-club' }, MF.flag(p.nat), MF.country(p.nat))],
-        [t('club') + ' · ' + t('league'), h('span', { class: 'v-club' }, MF.crest(club.n, 20), club.n + ' · ' + (leagues[club.l] || ''))],
-      ];
+      const MAXG = { easy: Infinity, normal: Infinity, hard: 8, legend: 4 }[lvl];
+      const H = {
+        type: [t('cardType'), h('span', { class: 'tier-chip t' + MF.cardTier(ovr) }, MF.cardType(ovr) + ' · ' + MF.edition(ver))],
+        pos: [t('position') + ' · ' + t('rating'), MF.pos(pos) + ' · ' + ovr],
+        age: [t('age') + ' · ' + t('value'), age + ' · ' + MF.money(val)],
+        nat: [t('nationality'), h('span', { class: 'v-club' }, MF.flag(p.nat), MF.country(p.nat))],
+        club: [t('club') + ' · ' + t('league'), h('span', { class: 'v-club' }, MF.crest(club.n, 20), club.n + ' · ' + (leagues[club.l] || ''))],
+      };
+      const ORDER = { easy: ['type', 'nat', 'pos', 'club', 'age'], normal: ['type', 'pos', 'age', 'nat', 'club'], hard: ['type', 'age', 'pos', 'nat', 'club'], legend: ['type', 'age', 'pos', 'nat'] }[lvl];
+      const hints = ORDER.map((k) => H[k]);
       const slot = h('div', { class: 'card-slot' });
       const list = h('ol', { class: 'hint-list' });
       const guesses = h('ol', { class: 'guess-list' });
@@ -72,7 +76,7 @@
           h('span', { class: 'hint-n' }, t('hint') + ' ' + (i + 1)), h('span', { class: 'hint-l' }, l), h('span', { class: 'hint-v' }, i < shown ? v : '?'))));
         MF.clear(guesses);
         st.guesses.forEach((g) => guesses.appendChild(h('li', { class: g === pi ? 'hit' : g == null ? 'skip' : 'miss' }, g == null ? t('skip') : P[g].n)));
-        left.textContent = t('attempts') + ': ' + st.guesses.filter((g) => g != null).length;
+        left.textContent = t('attempts') + ': ' + st.guesses.filter((g) => g != null).length + (MAXG < Infinity ? '/' + MAXG : '');
         skipBtn.disabled = st.guesses.length >= hints.length - 1 || done;
         MF.clear(slot);
         slot.appendChild(done ? MF.fifaCard(card, { flip: true }) : h('div', { class: 'fcard back ' + ['gold', 'silver', 'bronze'][MF.cardTier(ovr)] }, h('span', null, '?')));
@@ -85,6 +89,7 @@
         ctx.save();
         if (g === pi) return end(true);
         if (g != null) { MF.toast(t('wrong') + ': ' + P[g].n, 'bad'); MF.anim(slot, 'shake'); }
+        if (st.guesses.filter((x) => x != null).length >= MAXG) return end(false);
         paint(Math.min(st.guesses.length, hints.length - 1));
       }
       function end(win) {

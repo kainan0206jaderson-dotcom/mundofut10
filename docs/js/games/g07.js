@@ -8,7 +8,8 @@
   const MF = window.MF, h = MF.h, t = (k) => MF.t(k);
   const FIRST = 17; // primeiras cartas: 12 da solução + 2 que encaixam + 3 sem ligação
   const DECK = 90;
-  const SKIPS = 5;
+  // por dificuldade: pulos, nota mínima dos jogadores, clubes com quantos jogadores no baralho, % de cartas sem ligação
+  const LV = { easy: [Infinity, 86, 30, 0.2], normal: [Infinity, 82, 18, 0.3], hard: [5, 80, 14, 0.3], legend: [3, 78, 10, 0.4] };
   const LEAGUES = ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Brasileirão', 'Liga Portugal', 'Saudi Pro League', 'MLS', 'Süper Lig'];
   const LG_SHORT = { 'Premier League': 'PL', 'La Liga': 'LL', 'Serie A': 'SA', 'Bundesliga': 'BL', 'Ligue 1': 'L1', 'Brasileirão': 'BR', 'Liga Portugal': 'LP', 'Saudi Pro League': 'SPL', 'MLS': 'MLS', 'Süper Lig': 'SL' };
   // os 4 prêmios se revezam: um por dia, sempre na mesma ordem
@@ -32,17 +33,20 @@
 
   // jogadores do bingo: lendas, famosos e jogadores conhecidos (nota 82+), de todas as épocas.
   // Só entra quem tem a carreira completa na base (começa até os 21 anos), para nenhum "não encaixa" ser injusto.
-  function pool() {
-    if (MF._bingoPool) return MF._bingoPool;
-    return (MF._bingoPool = MF.data.P.filter((p) => (p.legend || p.famous || p.r >= 82) && p.st.length && p.first - p.born <= 21));
+  function pool(lvl) {
+    MF._bingoPool = MF._bingoPool || {};
+    if (MF._bingoPool[lvl]) return MF._bingoPool[lvl];
+    const min = LV[lvl][1];
+    return (MF._bingoPool[lvl] = MF.data.P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && !p.natGuess && (p.r >= min || (lvl !== 'easy' && (p.legend || p.famous))) && p.st.length && p.born && p.first - p.born <= 21));
   }
-  function catalog() {
-    if (MF._bingoCat) return MF._bingoCat;
+  function catalog(lvl) {
+    MF._bingoCat = MF._bingoCat || {};
+    if (MF._bingoCat[lvl]) return MF._bingoCat[lvl];
     const { leagues } = MF.data;
-    const pl = pool();
+    const pl = pool(lvl);
     const cc = new Map(), nc = new Map();
     for (const p of pl) { for (const c of p.clubs) cc.set(c, (cc.get(c) || 0) + 1); nc.set(p.nat, (nc.get(p.nat) || 0) + 1); }
-    const club = [...cc].filter(([, n]) => n >= 18).map(([c]) => ({ type: 'club', id: c, fit: (p) => p.clubs.includes(c) }));
+    const club = [...cc].filter(([, n]) => n >= LV[lvl][2]).map(([c]) => ({ type: 'club', id: c, fit: (p) => p.clubs.includes(c) }));
     const nat = [...nc].filter(([, n]) => n >= 15).map(([n]) => ({ type: 'nat', id: n, fit: (p) => p.nat === n }));
     const lg = [];
     Object.entries(leagues).forEach(([id, name]) => {
@@ -52,15 +56,16 @@
       if (pl.filter(c.fit).length >= 18) lg.push(c);
     });
     const aw = Object.fromEntries(Object.entries(AWARDS).map(([k, a]) => [k, { type: 'award', id: k, fit: a.fit }]));
-    return (MF._bingoCat = { club, nat, lg, aw });
+    return (MF._bingoCat[lvl] = { club, nat, lg, aw });
   }
 
   // cartela + baralho do dia: as primeiras 17 cartas bastam (12 formam um encaixe perfeito, 3 não servem em nada);
   // depois o baralho continua com ~70% de jogadores que encaixam em algo e ~30% sem ligação
-  function build(seed, awardKey) {
-    const { club, nat, lg, aw } = catalog();
-    const pl = pool();
-    const rnd = MF.rng('bingo2:' + seed);
+  function build(seed, awardKey, lvl) {
+    lvl = lvl || 'normal';
+    const { club, nat, lg, aw } = catalog(lvl);
+    const pl = pool(lvl);
+    const rnd = MF.rng('bingo3:' + lvl + ':' + seed);
     for (let tries = 0; tries < 50; tries++) {
       // como no Futbol11: 7 clubes, 3 seleções (bandeiras), 1 liga e 1 prêmio
       const award = aw[awardKey] || aw.bow;
@@ -84,7 +89,7 @@
       const first = MF.shuffle([...sol, ...take(awardFit.length ? awardFit : fit, 1), ...take(fit, 1), ...take(none, 3)], rnd);
       const rest = [];
       while (rest.length < DECK - FIRST && (fit.length || none.length)) {
-        const src = rnd() < 0.3 ? none : fit;
+        const src = rnd() < LV[lvl][3] ? none : fit;
         const got = take(src.length ? src : (src === none ? fit : none), 1);
         if (got.length) rest.push(got[0]);
       }
@@ -97,20 +102,22 @@
     num: 7, slug: 'bingo-fut10',
     tag: () => t('noTimer') + ' ∞',
     rules: {
-      pt: ['Uma cartela com 12 casas: 7 clubes, 3 seleções, 1 liga e 1 título que se reveza a cada dia (Bola de Ouro, Copa do Mundo, Libertadores e Eurocopa). Os jogadores aparecem um por vez, com foto e nome: craques e jogadores conhecidos de várias épocas — e alguns não têm ligação nenhuma com a cartela.', 'Toque na casa em que o jogador se encaixa ou pule. Vale a carreira inteira: o clube ou a liga em qualquer época; seleção é a que ele defende. Cada jogador preenche uma casa só.', 'Sem limite de tempo e erros livres: encaixe errado não tira o jogador, tente outra casa ou pule. Modo Livre: pulos à vontade. Modo 5 pulos: só 5 pulos; se acabarem e aparecer alguém que não serve em nenhuma casa livre, o jogo termina. Preencha as 12 casas para vencer.'],
-      en: ['A card with 12 squares: 7 clubs, 3 nations, 1 league and 1 title that rotates every day (Ballon d’Or, World Cup, Libertadores and Euro). Players appear one at a time, with photo and name: stars and well-known players from every era — and some have no link to the card at all.', 'Tap the square where the player fits or skip. The whole career counts: the club or league at any time; nation is the one he represents. Each player fills one square only.', 'No time limit and unlimited mistakes: a wrong square keeps the player, try another or skip. Free mode: unlimited skips. 5 skips mode: only 5 skips; if they run out and a player fits no open square, the game ends. Fill all 12 squares to win.'],
-      es: ['Un cartón con 12 casillas: 7 clubes, 3 selecciones, 1 liga y 1 título que se alterna cada día (Balón de Oro, Mundial, Libertadores y Eurocopa). Los jugadores aparecen de uno en uno, con foto y nombre: cracks y jugadores conocidos de todas las épocas — y algunos no tienen relación con el cartón.', 'Toca la casilla en la que encaja el jugador o salta. Vale toda la carrera: el club o la liga en cualquier época; la selección es la que representa. Cada jugador llena una sola casilla.', 'Sin límite de tiempo y fallos libres: una casilla equivocada no quita al jugador, prueba otra o salta. Modo Libre: saltos ilimitados. Modo 5 saltos: solo 5; si se acaban y aparece alguien que no encaja en ninguna casilla libre, el juego termina. Llena las 12 casillas para ganar.'],
+      pt: ['Uma cartela com 12 casas: 7 clubes, 3 seleções, 1 liga e 1 título que se reveza a cada dia (Bola de Ouro, Copa do Mundo, Libertadores e Eurocopa). Os jogadores aparecem um por vez, com foto e nome: craques e jogadores conhecidos de várias épocas — e alguns não têm ligação nenhuma com a cartela.', 'Toque na casa em que o jogador se encaixa ou pule. Vale a carreira inteira: o clube ou a liga em qualquer época; seleção é a que ele defende. Cada jogador preenche uma casa só.', 'Sem limite de tempo e erros livres: encaixe errado não tira o jogador, tente outra casa ou pule. Preencha as 12 casas para vencer. Só jogadores de 1990 para cá.', 'Fácil: craques muito conhecidos, clubes gigantes e pulos à vontade. Normal: jogadores famosos e pulos à vontade. Difícil: mais jogadores e clubes, só 5 pulos. Lendário: só 3 pulos e mais cartas sem ligação. Com pulos limitados: se acabarem e aparecer alguém que não serve em nenhuma casa livre, o jogo termina.'],
+      en: ['A card with 12 squares: 7 clubs, 3 nations, 1 league and 1 title that rotates every day (Ballon d’Or, World Cup, Libertadores and Euro). Players appear one at a time, with photo and name: stars and well-known players from every era — and some have no link to the card at all.', 'Tap the square where the player fits or skip. The whole career counts: the club or league at any time; nation is the one he represents. Each player fills one square only.', 'No time limit and unlimited mistakes: a wrong square keeps the player, try another or skip. Fill all 12 squares to win. Only players from 1990 on.', 'Easy: very well-known stars, giant clubs and unlimited skips. Normal: famous players and unlimited skips. Hard: more players and clubs, only 5 skips. Legendary: only 3 skips and more unrelated cards. With limited skips: if they run out and a player fits no open square, the game ends.'],
+      es: ['Un cartón con 12 casillas: 7 clubes, 3 selecciones, 1 liga y 1 título que se alterna cada día (Balón de Oro, Mundial, Libertadores y Eurocopa). Los jugadores aparecen de uno en uno, con foto y nombre: cracks y jugadores conocidos de todas las épocas — y algunos no tienen relación con el cartón.', 'Toca la casilla en la que encaja el jugador o salta. Vale toda la carrera: el club o la liga en cualquier época; la selección es la que representa. Cada jugador llena una sola casilla.', 'Sin límite de tiempo y fallos libres: una casilla equivocada no quita al jugador, prueba otra o salta. Llena las 12 casillas para ganar. Solo jugadores de 1990 en adelante.', 'Fácil: cracks muy conocidos, clubes gigantes y saltos ilimitados. Normal: jugadores famosos y saltos ilimitados. Difícil: más jugadores y clubes, solo 5 saltos. Legendario: solo 3 saltos y más cartas sin relación. Con saltos limitados: si se acaban y aparece alguien que no encaja en ninguna casilla libre, el juego termina.'],
     },
-    options: [{ key: 'mode', label: () => t('mode'), def: 'free', choices: () => [{ v: 'free', label: t('bingoFree') }, { v: 'five', label: t('bingoFive') }] }],
+    options: [MF.levelOpt()],
     preview() { return h('div', { class: 'pv-grid pv-bingo' }, Array.from({ length: 12 }, (_, i) => h('b', { class: i % 5 === 0 ? 'on' : '' }))); },
     play(board, ctx) {
       const { P, clubs } = MF.data;
       const st = ctx.state;
-      const five = st.opts.mode === 'five';
-      const no = MF.daily('g7-bingo', 1000);
+      const lvl = MF.level(st);
+      const SKIPS = LV[lvl][0];
+      const five = SKIPS < Infinity;
+      const no = MF.daily('g7-bingo3:' + lvl, 1000);
       const awardKey = AWARD_ORDER[((MF.today() % 4) + 4) % 4];
-      let B = build(no, awardKey);
-      for (let k = 1; !B && k < 10; k++) B = build(no + ':' + k, awardKey);
+      let B = build(no, awardKey, lvl);
+      for (let k = 1; !B && k < 10; k++) B = build(no + ':' + k, awardKey, lvl);
       const { cats, deck } = B;
       st.cells = st.cells || Array(12).fill(null);
       st.k = st.k || 0; // posição no baralho
@@ -160,7 +167,7 @@
           let inner;
           if (pi != null) inner = [MF.photo(P[pi].n, P[pi].nat, 40), h('span', { class: 'bg-name' }, P[pi].n), h('span', { class: 'bg-cat' }, label(c))];
           else if (done) {
-            const ex = pool().filter((q) => c.fit(q) && !st.cells.includes(q.i)).sort((x, y) => y.r - x.r)[0];
+            const ex = pool(lvl).filter((q) => c.fit(q) && !st.cells.includes(q.i)).sort((x, y) => y.r - x.r)[0];
             inner = [icon(c), h('span', { class: 'bg-cat' }, label(c)), ex ? h('span', { class: 'bg-ex' }, ex.n) : null];
           } else inner = [icon(c), h('span', { class: 'bg-cat' }, label(c))];
           const tried = !done && pi == null && st.tried.includes(i);
@@ -216,7 +223,7 @@
         ctx.finish(win, n, rows + '\n' + n + '/12 · ' + st.miss + ' ' + t('missesWord') + (five ? ' · ' + st.skips + '/' + SKIPS + ' ' + t('skipsWord') : ''));
         paint();
       }
-      board.appendChild(h('div', { class: 'bar' }, cellPill, missPill, h('span', { class: 'pill' }, five ? t('bingoFive') : t('bingoFree'))));
+      board.appendChild(h('div', { class: 'bar' }, cellPill, missPill, h('span', { class: 'pill' }, five ? SKIPS + ' ' + t('skipsWord') : t('bingoFree'))));
       board.appendChild(cardBox);
       board.appendChild(grid);
       board.appendChild(h('div', { class: 'row-btns center' }, flag));

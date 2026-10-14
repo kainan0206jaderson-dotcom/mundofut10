@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:title" content="MUNDOFUT10">
-<meta property="og:description" content="Onze desafios de futebol por dia. Tudo vira às 6h.">
+<meta property="og:description" content="Onze desafios de futebol por dia, em quatro dificuldades. Tudo vira à meia-noite.">
 <meta property="og:image" content="icons/icon-512.png">
 <style>body{margin:0}[hidden]{display:none!important}</style>
 <title>MUNDOFUT10</title>
@@ -197,6 +197,24 @@ input, textarea { caret-color: var(--yellow); }
 .rules { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--paper); max-width: 62ch; }
 .rules li::marker { color: var(--yellow); }
 .controls { display: grid; gap: 12px; }
+.seg button:disabled { cursor: not-allowed; opacity: .55; }
+.seg button.done-won { color: var(--ok); border-color: rgba(61,220,138,.45); opacity: .8; }
+.seg button.done-lost { color: var(--bad); border-color: rgba(255,93,77,.45); opacity: .8; }
+.seg-mark { margin-right: 5px; font-weight: 800; }
+.played-today { display: grid; gap: 6px; }
+.played-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.played-chips .chip { border: 0; cursor: pointer; font: inherit; font-family: var(--f-num); font-weight: 700; font-size: 14px; }
+.all-levels { margin: 0; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface); border-left: 3px solid var(--ok); }
+.result-foot .btn-primary { justify-self: start; }
+.pyr-help:not(:disabled) { border-color: var(--yellow); color: var(--yellow); }
+.fd-round { display: grid; gap: 10px; }
+.fd-club { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--yellow); }
+.fd-club > div { display: grid; gap: 2px; min-width: 0; }
+.fd-club strong { font-family: var(--f-display); font-weight: 900; font-size: 26px; line-height: 1; overflow-wrap: anywhere; }
+.fd-club-l { font-size: 12px; color: var(--mute); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.fd-club-h { font-size: 13px; color: var(--yellow); }
+.fd-round .ac { width: 100%; }
+
 .seg-row { display: grid; gap: 6px; }
 .seg-label { font-size: 13px; color: var(--mute); font-weight: 600; }
 .seg { display: flex; flex-wrap: wrap; gap: 6px; }

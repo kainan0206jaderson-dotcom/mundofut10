@@ -102,10 +102,7 @@
   }
 
   // ------------------------------------------------------------------ página inicial
-  function gameStatus(g) {
-    const st = MF.dayState(g.slug);
-    return st ? st.status : 'new'; // new | playing | won | lost
-  }
+  function gameStatus(g) { return MF.dayStatus(g.slug); } // new | playing | won | lost
   const statusText = (s) => t(s === 'won' ? 'statusWon' : s === 'lost' ? 'statusLost' : s === 'playing' ? 'playing' : 'play');
   function home() {
     if (MF.Stadium && MF.Stadium.init && MF.Stadium.init()) return home3d();
@@ -285,29 +282,48 @@ clockLine()),
       stage));
     root.appendChild(footer());
 
-    let state = MF.dayState(g.slug);
-    if (state && state.status !== 'playing') return runGame(g, stage, state);
-    if (state && state.status === 'playing') return runGame(g, stage, state);
+    // partida em andamento (em qualquer dificuldade) continua de onde parou
+    const playing = Object.values(MF.dayStates(g.slug)).find((s) => s.status === 'playing');
+    if (playing) return runGame(g, stage, playing);
     intro(g, stage);
   }
+  MF.openIntro = (g, stage) => intro(g, stage);
 
+  // tela inicial do jogo: regras, dificuldade (cada uma uma vez por dia) e tempo (livre para repetir)
   function intro(g, stage) {
     MF.clear(stage);
+    window.scrollTo(0, 0);
     const opts = {};
+    const done = MF.dayStates(g.slug);
+    const free = MF.LEVELS.filter((l) => !done[l]);
     const controls = (g.options || []).map((o) => {
-      opts[o.key] = o.def;
-      return MF.segmented(o.label(), o.choices(), o.def, (v) => (opts[o.key] = v));
+      let def = o.def;
+      let choices = o.choices();
+      if (o.key === 'mode') {
+        choices = choices.map((c) => done[c.v] ? Object.assign({}, c, { disabled: true, mark: done[c.v].status === 'won' ? 'won' : 'lost' }) : c);
+        if (done[def]) def = free.includes('normal') ? 'normal' : free[0] || def;
+      }
+      opts[o.key] = def;
+      return MF.segmented(o.label(), choices, def, (v) => (opts[o.key] = v));
     });
     const rules = (g.rules[MF.lang] || g.rules.pt);
+    const playedList = Object.entries(done).filter(([, s]) => s.status !== 'playing');
+    const allDone = !free.length;
     stage.appendChild(h('section', { class: 'intro' },
       g.preview ? h('div', { class: 'intro-art', 'aria-hidden': 'true' }, g.preview()) : null,
       h('div', { class: 'intro-body' },
         h('h2', null, t('howTo')),
         MF.ruleTag(g),
         h('ul', { class: 'rules' }, rules.map((r) => h('li', null, r))),
-        h('div', { class: 'controls' }, controls),
-        h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: () => {
-          const state = { status: 'playing', opts, started: Date.now() };
+        playedList.length ? h('div', { class: 'played-today' },
+          h('span', { class: 'seg-label' }, t('playedToday')),
+          h('div', { class: 'played-chips' }, playedList.map(([l, s]) => h('button', {
+            type: 'button', class: 'chip chip-' + s.status, onclick: () => runGame(g, stage, s), title: t('seeResult'),
+          }, (s.status === 'won' ? '✓ ' : '✗ ') + t(l === 'legend' ? 'legendary' : l))))) : null,
+        allDone ? h('p', { class: 'all-levels' }, t('allLevelsDone')) : h('div', { class: 'controls' }, controls),
+        allDone ? null : h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: () => {
+          if (MF.dayState(g.slug, opts.mode || 'normal')) return MF.toast(t('levelDone'));
+          const state = { status: 'playing', opts: Object.assign({ mode: 'normal' }, opts), started: Date.now() };
           const tsec = +opts.timer || 0;
           if (tsec) state.deadline = Date.now() + tsec * 1000;
           MF.saveDayState(g.slug, state);
@@ -357,7 +373,8 @@ clockLine()),
       MF.clear(resultBox);
       const [name] = MF.gameInfo(g.num - 1);
       const win = state.status === 'won';
-      const share = 'MUNDOFUT10 #' + MF.challengeNo() + ' · ' + name + '\n' + (state.share || '') ;
+      const lv = state.opts && state.opts.mode;
+      const share = 'MUNDOFUT10 #' + MF.challengeNo() + ' · ' + name + (MF.LEVELS.includes(lv) ? ' · ' + t(lv === 'legend' ? 'legendary' : lv) : '') + '\n' + (state.share || '');
       const s = MF.stats(g.slug);
       resultBox.appendChild(h('section', { class: 'result ' + (win ? 'win' : 'lose'), 'aria-live': 'polite' },
         h('div', { class: 'result-head' },
@@ -367,7 +384,9 @@ clockLine()),
         state.detail ? h('div', { class: 'result-detail' }, renderDetail(state.detail)) : null,
         h('div', { class: 'result-stats' },
           stat(t('played'), s.played), stat(t('wins'), s.wins), stat(t('streak'), s.streak), stat(t('best'), s.best)),
-        h('div', { class: 'result-foot' }, MF.shareBox(share), h('p', { class: 'next' }, t('comeBack')))));
+        h('div', { class: 'result-foot' }, MF.shareBox(share),
+          MF.LEVELS.some((l) => !MF.dayState(g.slug, l)) ? h('button', { class: 'btn btn-primary', type: 'button', onclick: () => intro(g, stage) }, t('otherLevel')) : null,
+          h('p', { class: 'next' }, t('comeBack')))));
       resultBox.scrollIntoView && setTimeout(() => resultBox.scrollIntoView({ behavior: MF.reduced() ? 'auto' : 'smooth', block: 'nearest' }), 60);
     }
     function renderDetail(d) { return typeof d === 'string' ? h('p', null, d) : (g.renderDetail ? g.renderDetail(d, ctx) : null); }
@@ -389,7 +408,6 @@ clockLine()),
 
   // dificuldade padrão dos modos: Fácil (quem não acompanha muito), Normal (padrão), Difícil (quem conhece bem futebol), Lendário (o mais difícil possível)
   MF.ruleTag = (g) => h('span', { class: 'rule-tag' + (g.chances || g.tag ? ' limited' : '') }, g.tag ? g.tag() : g.chances ? t('nChances').replace('{n}', g.chances) : t('freeAnswers'));
-  MF.LEVELS = ['easy', 'normal', 'hard', 'legend'];
   MF.levelOpt = () => ({
     key: 'mode', label: () => t('mode'), def: 'normal',
     choices: () => [{ v: 'easy', label: t('easy') }, { v: 'normal', label: t('normal') }, { v: 'hard', label: t('hard') }, { v: 'legend', label: t('legendary') }],

@@ -10,30 +10,42 @@
     '4-2-3-1': [['GK', 50, 89], ['RB', 87, 67], ['CB', 62, 73], ['CB', 38, 73], ['LB', 13, 67], ['CDM', 37, 53], ['CDM', 63, 53], ['RW', 86, 32], ['CAM', 50, 34], ['LW', 14, 32], ['ST', 50, 12]],
   };
   const ACC = { GK: ['GK'], RB: ['RB', 'RWB'], LB: ['LB', 'LWB'], CB: ['CB'], CDM: ['CDM', 'CM'], CM: ['CM', 'CDM', 'CAM'], CAM: ['CAM', 'CM', 'CF'], RM: ['RM', 'RW'], LM: ['LM', 'LW'], RW: ['RW', 'RM', 'CF'], LW: ['LW', 'LM', 'CF'], ST: ['ST', 'CF'] };
-  const BIG = 40; // clube "relevante": muitos jogadores da base passaram por ele
   const per = (a, b) => (a === b ? String(a % 100).padStart(2, '0') : String(a % 100).padStart(2, '0') + '/' + String(b % 100).padStart(2, '0'));
-
-  // jogadores midiáticos (lendas, famosos ou nota alta) com passagem de 2+ temporadas por clube grande
-  function pool() {
-    if (MF._ondePool) return MF._ondePool;
+  // só lendas: aposentados que marcaram época entre os anos 70 e 2000 (inclui quem parou há pouco)
+  const TOP = { easy: 110, normal: 260, hard: 520, legend: 5000 };
+  const MINLEN = { easy: 3, normal: 2, hard: 1, legend: 0 };
+  function legends() {
+    if (MF._ondeLeg) return MF._ondeLeg;
     const { P, byClub } = MF.data;
+    // ordem de prestígio: lendas da curadoria e premiados primeiro
+    const score = (p) => p.r + (p.icon ? 6 : 0) + (p.bow ? 4 : p.bo ? 2 : 0) + (p.wc ? 1 : 0) + Math.min(3, (p.caps || 0) / 40);
+    const out = P.slice(0, MF.CORE_N).filter((p) => (p.legend || p.icon) && (p.retired || p.icon) && p.first <= 2008 && p.lastY >= 1970 && p.st.length)
+      .sort((a, b) => score(b) - score(a));
+    return (MF._ondeLeg = out);
+  }
+  function pool(lvl) {
+    MF._ondePool = MF._ondePool || {};
+    if (MF._ondePool[lvl]) return MF._ondePool[lvl];
+    const { byClub } = MF.data;
     const out = [];
-    for (const p of P) {
-      if (!(p.legend || p.famous || p.r >= 82)) continue;
-      const st = p.st.filter(([c, a, b]) => byClub[c].length >= BIG && b - a >= 1);
-      if (st.length) out.push({ i: p.i, pos: p.pos, st, w: p.legend || p.famous ? 2 : 1 });
+    for (const p of legends().slice(0, TOP[lvl])) {
+      // passagens com datas confiáveis; no Fácil e no Normal só clubes conhecidos
+      const st = p.st.filter((s) => MF.exact(s) && s[2] - s[1] >= MINLEN[lvl] && (lvl === 'legend' || lvl === 'hard' || byClub[s[0]].length >= (lvl === 'easy' ? 60 : 30)));
+      if (st.length) out.push({ i: p.i, pos: p.pos, st, w: out.length < TOP[lvl] / 3 ? 2 : 1 });
     }
-    return (MF._ondePool = out);
+    return (MF._ondePool[lvl] = out);
   }
 
-  function lineup(seedNo) {
-    const rnd = MF.rng('onde2:' + seedNo);
+  function lineup(seedNo, lvl) {
+    const rnd = MF.rng('onde3:' + lvl + ':' + seedNo);
     const forms = Object.keys(F);
     const form = forms[Math.floor(rnd() * forms.length)];
-    const pl = pool();
+    const pl = pool(lvl);
     const used = new Set(), usedClub = new Map();
     const slots = F[form].map(([pos, x, y]) => {
       let cand = pl.filter((c) => ACC[pos].includes(c.pos) && !used.has(c.i));
+      if (!cand.length) cand = pl.filter((c) => MF.line(c.pos) === MF.line(pos) && !used.has(c.i));
+      if (!cand.length) cand = pl.filter((c) => !used.has(c.i));
       // metade de famosos garantida: prioriza lendas/famosos
       const fam = cand.filter((c) => c.w === 2);
       if (fam.length && rnd() < 0.7) cand = fam;
@@ -57,21 +69,25 @@
   MF.registerGame({
     num: 11, slug: 'jogou-por-onde',
     rules: {
-      pt: ['Um time de nomes conhecidos do futebol mundial aparece numa formação sorteada, com o período de cada jogador ao lado do nome (ex.: 09/13 = de 2009 a 2013).', 'Digite na barra abaixo o clube onde o jogador destacado atuava naquele período. Vale qualquer clube em que ele jogou nesses anos. Toque em outro jogador para mudar a ordem.', 'Tentativas livres: erre quantas vezes quiser, pule para outro jogador ou toque na bandeira branca para encerrar. Acerte todos para vencer.'],
-      en: ['A team of well-known world football names appears in a random formation, with each player’s period next to the name (e.g. 09/13 = 2009 to 2013).', 'Type in the bar below the club where the highlighted player was in that period. Any club he played for in those years counts. Tap another player to change the order.', 'Unlimited tries: miss as often as you like, skip to another player or tap the white flag to end. Get them all to win.'],
-      es: ['Un equipo de nombres conocidos del fútbol mundial aparece en una formación sorteada, con el periodo de cada jugador junto al nombre (ej.: 09/13 = de 2009 a 2013).', 'Escribe en la barra de abajo el club donde jugaba el jugador destacado en ese periodo. Vale cualquier club en el que jugó en esos años. Toca otro jugador para cambiar el orden.', 'Intentos libres: falla cuantas veces quieras, salta a otro jugador o toca la bandera blanca para terminar. Acierta todos para ganar.'],
+      pt: ['Só lendas: um time de craques aposentados que marcaram época dos anos 70 aos 2000 (e quem parou há pouco), numa formação sorteada, com o período ao lado do nome (ex.: 97/02 = de 1997 a 2002).', 'Digite o clube onde o jogador destacado atuava naquele período. Vale qualquer clube em que ele jogou nesses anos. Toque em outro jogador para mudar a ordem.', 'Fácil: as maiores lendas, passagens longas por clubes grandes e a bandeira do país do clube como dica. Normal: lendas conhecidas e passagens de 2 anos ou mais. Difícil: mais lendas e qualquer passagem. Lendário: qualquer lenda, inclusive passagens curtas e clubes menores.', 'Tentativas livres: erre quantas vezes quiser, pule ou toque na bandeira branca para encerrar. Acerte todos para vencer.'],
+      en: ['Legends only: a team of retired greats from the 70s to the 2000s (and recent retirees), in a random formation, with the period next to the name (e.g. 97/02 = 1997 to 2002).', 'Type the club where the highlighted player was in that period. Any club he played for in those years counts. Tap another player to change the order.', 'Easy: the biggest legends, long spells at big clubs and the club’s country flag as a hint. Normal: well-known legends and spells of 2+ years. Hard: more legends and any spell. Legendary: any legend, including short spells and smaller clubs.', 'Unlimited tries: miss as often as you like, skip or tap the white flag to end. Get them all to win.'],
+      es: ['Solo leyendas: un equipo de cracks retirados que marcaron época de los 70 a los 2000 (y quienes se retiraron hace poco), en una formación sorteada, con el periodo junto al nombre (ej.: 97/02 = de 1997 a 2002).', 'Escribe el club donde jugaba el jugador destacado en ese periodo. Vale cualquier club en el que jugó en esos años. Toca otro jugador para cambiar el orden.', 'Fácil: las mayores leyendas, etapas largas en clubes grandes y la bandera del país del club como pista. Normal: leyendas conocidas y etapas de 2 años o más. Difícil: más leyendas y cualquier etapa. Legendario: cualquier leyenda, incluso etapas cortas y clubes pequeños.', 'Intentos libres: falla cuantas veces quieras, salta o toca la bandera blanca para terminar. Acierta todos para ganar.'],
     },
-    options: [MF.timerOpt([0, 90, 60, 40])],
+    options: [MF.levelOpt(), MF.timerOpt([0, 120, 90, 60])],
     preview() { return h('div', { class: 'pv-draft br' }, F['4-3-3'].map(([, x, y]) => h('b', { style: { left: x + '%', top: y + '%' } }))); },
     play(board, ctx) {
       const { P, clubs } = MF.data;
       const st = ctx.state;
-      const L = lineup(MF.daily('g11-onde-mundo', 900));
+      const lvl = MF.level(st);
+      const L = lineup(MF.daily('g11-onde-lendas:' + lvl, 900), lvl);
       const items = L.slots.map((s) => ({ ...s, name: P[s.pi].n, nat: P[s.pi].nat }));
       // aceita qualquer clube do jogador cuja passagem toque o período mostrado
       const okClubs = items.map((it) => {
         const s = new Set([it.club]);
         P[it.pi].st.forEach(([c, a, b]) => { if (a <= it.b && b >= it.a) s.add(c); });
+        // mesmo clube com outro nome na base (ex.: grafias diferentes)
+        const nm = MF.norm(clubs[it.club].n);
+        clubs.forEach((c) => { if (MF.norm(c.n) === nm) s.add(c.i); });
         return s;
       });
       st.res = st.res || items.map(() => null); // 'ok' | 'miss'
@@ -101,6 +117,7 @@
         if (!ctx.finished() && active >= 0) {
           const it = items[active];
           now.appendChild(h('div', { class: 'draft-club' }, h('span', { class: 'slot-pos big' }, MF.pos(it.pos)), h('strong', null, it.name), h('span', null, MF.flag(it.nat)), h('span', { class: 'per-big' }, per(it.a, it.b))));
+          if (lvl === 'easy' && clubs[it.club].cty) now.appendChild(h('p', { class: 'tries' }, t('clubCountry') + ' ', MF.flag(clubs[it.club].cty), ' ' + MF.country(clubs[it.club].cty)));
           if (st.tries[active]) now.appendChild(h('p', { class: 'tries' }, st.tries[active] + ' ' + t('missesWord')));
         }
         const ok = st.res.filter((r) => r === 'ok').length;

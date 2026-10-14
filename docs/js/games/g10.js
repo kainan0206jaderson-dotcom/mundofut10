@@ -1,25 +1,16 @@
-/* Jogo 10 — Draft (no estilo FUT Draft / FUTBIN Draft Simulator), temporada 2026/27
-   1) escolha 1 de 5 formações; 2) escolha o capitão entre 5 cartas; 3) toque em cada posição e escolha 1 de 5 cartas.
-   Ligações entre vizinhos dão a química (verde, laranja, vermelho); jogadores escalados podem trocar de posição.
-   Pontuação draft = nota do time (fórmula FUT) + química (até 100). Um único "Trocar opções" por partida.
-   Clubes: os mais relevantes de LaLiga, Premier League, Ligue 1, Serie A, Bundesliga, Liga Argentina e Saudi Pro League,
-   e todos os do Brasileirão. Base própria: data/draft.json (EA FC 27 + Wikipedia), carregada só aqui. */
+/* Jogo 10 — Draft por clube sorteado
+   1) escolha 1 de 5 formações; 2) a cada rodada um clube é sorteado: toque na posição que quiser e escolha QUALQUER jogador
+   que já passou por esse clube — lenda ou atual (base do Transfermarkt + lendas curadas).
+   Ligações entre vizinhos dão a química: verde = já jogaram no mesmo clube, ou mesma seleção e mesma liga; laranja = mesma
+   seleção ou mesma liga; vermelho = nada em comum. Jogador fora da posição perde química.
+   Pontuação draft = nota do time + química (até 100). Notas MUNDOFUT: calculadas a partir de valor de mercado, seleção,
+   anos em grandes ligas e prêmios (não são notas de videogame).
+   Dificuldade: Fácil = gigantes do futebol e 3 trocas de clube; Normal = clubes conhecidos e 2 trocas; Difícil = clubes médios
+   e 1 troca; Lendário = clubes menores, sem trocas. */
 (function () {
   'use strict';
   const MF = window.MF, h = MF.h, t = (k) => MF.t(k);
 
-  // clubes relevantes por liga (o Brasileirão entra inteiro)
-  const TOP = {
-    laliga: ['Real Madrid', 'Barcelona', 'Atlético de Madrid', 'Athletic Bilbao', 'Real Sociedad', 'Real Betis', 'Villarreal', 'Sevilla', 'Valencia'],
-    premier: ['Manchester City', 'Manchester United', 'Arsenal', 'Liverpool', 'Chelsea', 'Tottenham', 'Aston Villa', 'Newcastle'],
-    ligue1: ['Paris Saint-Germain', 'Olympique de Marseille', 'Lyon', 'Monaco', 'Lille', 'Lens', 'Nice'],
-    seriea: ['Inter de Milão', 'Milan', 'Juventus', 'Napoli', 'Roma', 'Atalanta', 'Lazio', 'Fiorentina'],
-    bundesliga: ['Bayern de Munique', 'Borussia Dortmund', 'Bayer Leverkusen', 'RB Leipzig', 'Stuttgart', 'Eintracht Frankfurt', 'Borussia Mönchengladbach'],
-    argentina: ['River Plate', 'Boca Juniors', 'Racing Club', 'Independiente', 'San Lorenzo', 'Estudiantes de La Plata', 'Vélez Sarsfield', 'Rosario Central', "Newell's Old Boys"],
-    saudi: ['Al-Hilal', 'Al-Nassr', 'Al-Ittihad', 'Al-Ahli', 'Al-Qadsiah'],
-  };
-
-  // formações: [posição, x %, y %] (y = 0 no ataque) e ligações entre vizinhos
   const DEF4 = [['GK', 50, 91], ['LB', 11, 68], ['CB', 36, 73], ['CB', 64, 73], ['RB', 89, 68]];
   const BACK4 = [[0, 2], [0, 3], [1, 2], [2, 3], [3, 4]];
   const FORMS = {
@@ -41,40 +32,37 @@
       l: [[0, 2], [0, 3], [0, 4], [1, 2], [2, 3], [3, 4], [4, 5], [1, 6], [2, 6], [3, 7], [4, 8], [5, 8], [6, 7], [7, 8], [6, 9], [7, 9], [7, 10], [8, 10], [9, 10]] },
   };
   const PITCH_SVG = '<svg class="pitch-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><rect x="2" y="2" width="96" height="96"/><line x1="2" y1="50" x2="98" y2="50"/><circle cx="50" cy="50" r="10"/><rect x="26" y="2" width="48" height="15"/><rect x="26" y="83" width="48" height="15"/></svg>';
+  // posições "parecidas" (sem perder química)
+  const NEAR = { GK: ['GK'], CB: ['CB'], LB: ['LB', 'LWB'], RB: ['RB', 'RWB'], CDM: ['CDM', 'CM'], CM: ['CM', 'CDM', 'CAM'], CAM: ['CAM', 'CM', 'CF'],
+    LM: ['LM', 'LW'], RM: ['RM', 'RW'], LW: ['LW', 'LM'], RW: ['RW', 'RM'], ST: ['ST', 'CF'], CF: ['CF', 'ST', 'CAM'] };
+  const REROLLS = { easy: 3, normal: 2, hard: 1, legend: 0 };
+  const fits = (p, pos) => (NEAR[pos] || [pos]).includes(p.pos) || p.allpos.some((a) => (NEAR[pos] || [pos]).includes(a));
+  const line = (pos) => MF.line(pos);
 
-  // ------------------------------------------------------------------ base 2026/27
-  MF.loadDraft = () => {
-    if (MF._draftP) return MF._draftP;
-    MF._draftP = fetch('data/draft.json').then((r) => { if (!r.ok) throw new Error('draft ' + r.status); return r.json(); }).then((d) => {
-      const leagues = d.leagues.map(([k, n], i) => ({ i, k, n }));
-      const clubs = d.clubs.map(([n, l, s], i) => ({ i, n, l, s, players: [] }));
-      const P = d.players.map(([n, full, nat, pos, alt, r, c, est], i) => {
-        const p = { i, n, full, nat, pos, allpos: alt.split('/'), r, c, est: !!est };
-        clubs[c].players.push(i);
-        return p;
-      });
-      // pool do draft: clubes relevantes (Brasileirão inteiro), jogadores com nota 65+
-      const keep = new Set();
-      leagues.forEach((l) => {
-        const cs = clubs.filter((c) => c.l === l.i);
-        (l.k === 'brasileirao' ? cs : cs.filter((c) => (TOP[l.k] || []).includes(c.n))).forEach((c) => keep.add(c.i));
-      });
-      const pool = P.filter((p) => keep.has(p.c) && p.r >= 65);
-      return (MF.draft = { leagues, clubs, P, pool, keep });
-    }).catch((e) => { MF._draftP = null; throw e; });
-    return MF._draftP;
-  };
-  const fits = (p, pos) => p.pos === pos || p.allpos.includes(pos);
+  // clubes sorteáveis por dificuldade: quantidade de jogadores relevantes que passaram por ele (base principal)
+  function clubPools() {
+    if (MF._draftClubs) return MF._draftClubs;
+    const { P, clubs, byClub } = MF.data;
+    const score = clubs.map((c) => {
+      const ps = byClub[c.i].map((i) => P[i]);
+      const good = ps.filter((p) => p.r >= 78);
+      const lines = new Set(good.map((p) => line(p.pos)));
+      return { c: c.i, n: ps.length, g: good.length, ok: lines.size === 4 && ps.some((p) => p.pos === 'GK') };
+    }).filter((x) => x.ok && x.n >= 25).sort((a, b) => b.g - a.g || b.n - a.n);
+    return (MF._draftClubs = {
+      easy: score.slice(0, 30).map((x) => x.c), normal: score.slice(0, 90).map((x) => x.c),
+      hard: score.slice(25, 220).map((x) => x.c), legend: score.slice(70, 420).map((x) => x.c),
+    });
+  }
 
-  // química: ligação verde (2) = mesmo clube, ou mesma seleção e mesma liga; laranja (1) = mesma seleção ou liga; vermelha (0)
+  // química: verde (2) = já jogaram no mesmo clube, ou mesma seleção e liga; laranja (1) = mesma seleção ou liga; vermelho (0)
   function linkVal(a, b) {
-    const { clubs } = MF.draft;
-    if (a.c === b.c) return 2;
-    const nat = a.nat === b.nat, lg = clubs[a.c].l === clubs[b.c].l;
+    if (a.clubs.some((c) => b.clubs.includes(c))) return 2;
+    const nat = a.nat && a.nat === b.nat, lg = a.leagues.some((l) => b.leagues.includes(l));
     return nat && lg ? 2 : nat || lg ? 1 : 0;
   }
   function rate(team, formKey) {
-    const { P, clubs } = MF.draft;
+    const { P, clubs } = MF.data;
     const F = FORMS[formKey] || FORMS['4-3-3'];
     const ps = team.map((i) => (i != null ? P[i] : null));
     const filled = ps.filter(Boolean);
@@ -87,65 +75,37 @@
     });
     const pchem = ps.map((p, k) => {
       if (!p) return null;
-      if (!cnt[k]) return 3;
-      const avg = sum[k] / cnt[k];
-      return Math.max(0, Math.min(10, Math.round(3 + 3.5 * avg) - (fits(p, F.s[k][0]) ? 0 : 3)));
+      const pos = F.s[k][0];
+      const pen = fits(p, pos) ? 0 : line(p.pos) === line(pos) ? 2 : 5;
+      if (!cnt[k]) return Math.max(0, 3 - pen);
+      return Math.max(0, Math.min(10, Math.round(3 + 3.5 * (sum[k] / cnt[k])) - pen));
     });
     const chem = Math.min(100, pchem.reduce((s, c) => s + (c || 0), 0));
-    // nota do time no estilo FUT: soma + o quanto cada um passa da média, dividido por 11
     const tot = filled.reduce((s, p) => s + p.r, 0);
     const avg = tot / 11;
     const ex = filled.reduce((s, p) => s + Math.max(0, p.r - avg), 0);
     const ovr = filled.length ? Math.floor((tot + ex) / 11 + 0.04) : 0;
     const score = ovr + chem;
-    const stars = score >= 180 ? 5 : score >= 168 ? 4 : score >= 155 ? 3 : score >= 140 ? 2 : 1;
-    const nLeagues = new Set(filled.map((p) => clubs[p.c].l)).size;
-    const nClubs = new Set(filled.map((p) => p.c)).size;
+    const stars = score >= 182 ? 5 : score >= 170 ? 4 : score >= 157 ? 3 : score >= 142 ? 2 : 1;
+    const nClubs = new Set(team.map((x, k) => x != null ? x : null).filter((x) => x != null).map((x) => x)).size;
     const nNations = new Set(filled.map((p) => p.nat)).size;
-    return { ovr, chem, score, stars, label: labels()[stars - 1], nLeagues, nClubs, nNations, links, pchem };
+    return { ovr, chem, score, stars, label: labels()[stars - 1], nNations, nClubs, links, pchem };
   }
   function labels() {
     const L = { pt: ['Várzea', 'Mediano', 'Bom time', 'Elite', 'Lendário'], en: ['Sunday league', 'Average', 'Good side', 'Elite', 'Legendary'], es: ['Potrero', 'Normal', 'Buen equipo', 'Élite', 'Legendario'] };
     return L[MF.lang] || L.pt;
   }
 
-  // 5 opções para uma posição: 1 craque (85+ quando der), 2 bons (79–84), 2 do resto; se já houver vizinho escalado,
-  // uma das opções costuma ter ligação com ele (como no FUT, dá para buscar química sem garantia)
-  function offerFor(pos, rnd, blocked, neighbours) {
-    const { pool } = MF.draft;
-    const cand = pool.filter((p) => fits(p, pos) && !blocked.has(p.i));
-    const nat = cand.filter((p) => p.pos === pos);
-    const base = nat.length >= 12 ? nat : cand;
-    const hi = base.filter((p) => p.r >= 85), mid = base.filter((p) => p.r >= 79 && p.r < 85), lo = base.filter((p) => p.r < 79 && p.r >= 70);
-    const out = [];
-    const take = (arr) => { const a = arr.filter((p) => !out.includes(p)); if (a.length) out.push(MF.pick(a, rnd)); };
-    take(hi.length && rnd() < 0.75 ? hi : mid);
-    take(mid); take(mid.length > 6 && rnd() < 0.5 ? mid : lo);
-    take(lo);
-    if (neighbours.length) {
-      const linked = cand.filter((p) => !out.includes(p) && neighbours.some((n) => linkVal(p, n) === 2));
-      const half = cand.filter((p) => !out.includes(p) && neighbours.some((n) => linkVal(p, n) === 1) && p.r >= 74);
-      take(linked.length && rnd() < 0.7 ? linked : half.length ? half : lo);
-    } else take(lo.length ? lo : mid);
-    while (out.length < 5) { const rest = cand.filter((p) => !out.includes(p)); if (!rest.length) break; out.push(MF.pick(rest, rnd)); }
-    return MF.shuffle(out.map((p) => p.i), rnd);
-  }
-
   MF.registerGame({
     num: 10, slug: 'draft-club',
     rules: {
-      pt: ['Monte um time da temporada 2026/27 como no FUT Draft: escolha 1 de 5 formações e depois o capitão entre 5 cartas.', 'Toque em cada posição vazia e escolha 1 de 5 jogadores. As linhas entre vizinhos mostram a química: verde = mesmo clube, ou mesma seleção e mesma liga; laranja = mesma seleção ou mesma liga; vermelho = nada em comum. Toque num jogador escalado e depois noutra posição para trocá-los de lugar.', 'Pontuação draft = nota do time + química (até 100). Você tem 1 "Trocar opções" por partida. Clubes: os mais relevantes de LaLiga, Premier League, Ligue 1, Serie A, Bundesliga, Liga Argentina e Saudi Pro League, e todos do Brasileirão.'],
-      en: ['Build a 2026/27 team like in FUT Draft: pick 1 of 5 formations, then your captain from 5 cards.', 'Tap each empty position and pick 1 of 5 players. Lines between neighbours show chemistry: green = same club, or same nation and league; orange = same nation or league; red = nothing in common. Tap a player on the pitch, then another position, to swap them.', 'Draft score = team rating + chemistry (up to 100). You get 1 "New options" per game. Clubs: the most relevant from LaLiga, Premier League, Ligue 1, Serie A, Bundesliga, Argentine league and Saudi Pro League, plus every Brasileirão club.'],
-      es: ['Arma un equipo de la temporada 2026/27 como en el FUT Draft: elige 1 de 5 formaciones y luego al capitán entre 5 cartas.', 'Toca cada posición vacía y elige 1 de 5 jugadores. Las líneas entre vecinos muestran la química: verde = mismo club, o misma selección y liga; naranja = misma selección o liga; rojo = nada en común. Toca un jugador del campo y luego otra posición para intercambiarlos.', 'Puntuación draft = media del equipo + química (hasta 100). Tienes 1 "Cambiar opciones" por partida. Clubes: los más relevantes de LaLiga, Premier League, Ligue 1, Serie A, Bundesliga, liga argentina y Saudi Pro League, y todos los del Brasileirão.'],
+      pt: ['Escolha 1 de 5 formações. Em cada rodada um clube é sorteado: toque na posição que quiser e escolha qualquer jogador que já passou por esse clube — lenda ou atual.', 'As linhas entre vizinhos mostram a química: verde = já jogaram num mesmo clube, ou mesma seleção e mesma liga; laranja = mesma seleção ou mesma liga; vermelho = nada em comum. Fora da posição, o jogador perde química. Toque num jogador escalado e depois noutra posição para trocá-los.', 'Pontuação draft = nota do time + química (até 100). As notas são do MUNDOFUT10 (valor de mercado, seleção, anos em grandes ligas e prêmios).', 'Fácil: gigantes do futebol e 3 trocas de clube. Normal: clubes conhecidos e 2 trocas. Difícil: clubes médios e 1 troca. Lendário: clubes menores e nenhuma troca. Vence quem completar os 11.'],
+      en: ['Pick 1 of 5 formations. Each round a club is drawn: tap the position you want and pick any player who ever played for that club — legend or current.', 'Lines between neighbours show chemistry: green = they shared a club, or same nation and league; orange = same nation or league; red = nothing in common. Out of position, a player loses chemistry. Tap a player, then another position, to swap them.', 'Draft score = team rating + chemistry (up to 100). Ratings are MUNDOFUT10’s own (market value, caps, years in big leagues and awards).', 'Easy: football giants and 3 club rerolls. Normal: well-known clubs and 2 rerolls. Hard: mid-size clubs and 1 reroll. Legendary: smaller clubs and no rerolls. Complete the XI to win.'],
+      es: ['Elige 1 de 5 formaciones. En cada ronda se sortea un club: toca la posición que quieras y elige a cualquier jugador que haya pasado por ese club — leyenda o actual.', 'Las líneas entre vecinos muestran la química: verde = compartieron club, o misma selección y liga; naranja = misma selección o liga; rojo = nada en común. Fuera de posición, el jugador pierde química. Toca un jugador y luego otra posición para cambiarlos.', 'Puntuación draft = media del equipo + química (hasta 100). Las medias son de MUNDOFUT10 (valor de mercado, selección, años en grandes ligas y premios).', 'Fácil: gigantes del fútbol y 3 cambios de club. Normal: clubes conocidos y 2 cambios. Difícil: clubes medianos y 1 cambio. Legendario: clubes más pequeños y sin cambios. Completa el once para ganar.'],
     },
-    options: [MF.timerOpt([0, 180, 120, 90])],
+    options: [MF.levelOpt(), MF.timerOpt([0, 300, 180, 120])],
     preview() { return h('div', { class: 'pv-draft' }, FORMS['4-3-3'].s.map(([, x, y]) => h('b', { style: { left: x + '%', top: y + '%' } }))); },
-    play(board, ctx) {
-      if (MF.draft) return start(board, ctx);
-      const wait = h('p', { class: 'loading-inline' }, t('loading'));
-      board.appendChild(wait);
-      MF.loadDraft().then(() => { wait.remove(); start(board, ctx); }).catch(() => { wait.textContent = t('loadError'); wait.classList.add('err'); });
-    },
+    play(board, ctx) { start(board, ctx); },
     renderDetail(d) {
       const r = d.r;
       if (!r) return null;
@@ -153,163 +113,136 @@
         h('div', { class: 'rating-big' }, h('strong', null, r.score), h('span', null, t('fdDraft'))),
         h('div', { class: 'rating-big' }, h('strong', null, r.ovr), h('span', null, t('fdRating'))),
         h('div', { class: 'rating-big' }, h('strong', null, r.chem), h('span', null, t('chemistry'))),
-        h('p', { class: 'stars', 'aria-label': r.stars + '/5' }, h('span', { class: 'stars-row' }, Array.from({ length: 5 }, (_, i) => MF.icon(i < r.stars ? 'star' : 'starOff', 24))), ' ', h('span', null, r.label)),
-        r.nClubs != null ? h('p', { class: 'fd-counts' }, r.nLeagues + ' ' + t('fdLeagues').toLowerCase() + ' · ' + r.nClubs + ' ' + t('fdClubs').toLowerCase() + ' · ' + r.nNations + ' ' + t('fdNations').toLowerCase()) : null);
+        h('p', { class: 'stars', 'aria-label': r.stars + '/5' }, h('span', { class: 'stars-row' }, Array.from({ length: 5 }, (_, i) => MF.icon(i < r.stars ? 'star' : 'starOff', 24))), ' ', h('span', null, r.label)));
     },
   });
 
-  // carta FUT compacta (opções e campo)
+  // carta compacta (campo e escolha)
   function card(pi, opts) {
-    const { P, clubs } = MF.draft;
+    const { P, clubs } = MF.data;
     const p = P[pi], o = opts || {};
-    const tier = p.r >= 85 ? 'elite' : p.r >= 75 ? 'gold' : p.r >= 65 ? 'silver' : 'bronze';
-    const kids = [
+    const tier = p.r >= 88 ? 'elite' : p.r >= 78 ? 'gold' : p.r >= 70 ? 'silver' : 'bronze';
+    const club = o.club != null ? clubs[o.club].n : '';
+    return h('span', { class: 'fdc ' + tier + (o.mini ? ' mini' : '') + (o.cls ? ' ' + o.cls : '') },
       h('span', { class: 'fdc-top' }, h('b', { class: 'fdc-r' }, p.r), h('span', { class: 'fdc-p' }, MF.pos(o.pos || p.pos))),
-      MF.photo(p.full || p.n, clubs[p.c].n, o.mini ? 30 : 58),
-      h('span', { class: 'fdc-n' }, p.n),
-      h('span', { class: 'fdc-m' }, MF.flag(p.nat), MF.crest(clubs[p.c].n, o.mini ? 14 : 20)),
-    ];
-    if (!o.mini) kids.push(h('span', { class: 'fdc-c' }, clubs[p.c].n));
-    return h(o.tag || 'span', Object.assign({ class: 'fdc ' + tier + (o.mini ? ' mini' : '') + (o.cls ? ' ' + o.cls : '') }, o.attrs || {}), kids);
+      MF.photo(p.n, p.nat, o.mini ? 30 : 58),
+      h('span', { class: 'fdc-n' }, p.fn && !/\s/.test(p.fn) ? p.fn : p.n),
+      h('span', { class: 'fdc-m' }, MF.flag(p.nat), club ? MF.crest(club, o.mini ? 14 : 20) : null),
+      !o.mini && club ? h('span', { class: 'fdc-c' }, club) : null);
   }
 
   function start(board, ctx) {
-    const { P } = MF.draft;
+    const { P, clubs } = MF.data;
     const st = ctx.state;
+    const lvl = MF.level(st);
     const day = MF.today();
-    if (st.v !== 28) Object.assign(st, { v: 28, phase: 'form', form: null, forms: null, capOffer: null, team: Array(11).fill(null), cap: null, offers: {}, reroll: 0 });
-    if (!st.forms) st.forms = MF.sample(Object.keys(FORMS), 5, MF.rng('fd28:forms:' + day));
-    let sel = null; // índice do jogador escalado selecionado para troca
-    let openSlot = null; // posição com o seletor aberto
+    const seed = 'fd3:' + day + ':' + lvl;
+    if (st.v !== 3) Object.assign(st, { v: 3, phase: 'form', form: null, forms: null, team: Array(11).fill(null), from: Array(11).fill(null), round: 0, rerolls: 0, drawn: [] });
+    if (!st.forms) st.forms = MF.sample(Object.keys(FORMS), 5, MF.rng(seed + ':forms'));
+    const pools = clubPools();
+    const pool = pools[lvl] || pools.normal;
+    // sequência de clubes do dia (sem repetir); trocas puxam o próximo da fila
+    const order = MF.shuffle(pool, MF.rng(seed + ':clubs'));
+    const clubAt = (k) => order[k % order.length];
+    if (!st.drawn.length) st.drawn = [clubAt(0)];
+    const curClub = () => st.drawn[st.drawn.length - 1];
+    let sel = null;
+    let target = null; // posição escolhida para o jogador do clube da rodada
 
     const F = () => FORMS[st.form];
-    const used = () => new Set(st.team.filter((x) => x != null));
-    const blocked = () => {
-      const b = used();
-      Object.values(st.offers).forEach((ids) => ids.forEach((i) => b.add(i)));
-      (st.capOffer || []).forEach((i) => b.add(i));
-      return b;
-    };
-    const neighbours = (k) => F().l.filter(([a, b]) => a === k || b === k).map(([a, b]) => st.team[a === k ? b : a]).filter((x) => x != null).map((i) => P[i]);
-
     const stepPill = h('span', { class: 'pill' });
     const pitch = h('div', { class: 'mini-pitch fd-pitch' });
     const side = h('div', { class: 'fd-side' });
     const sheet = h('div', { class: 'fd-sheet', hidden: true });
+    const roundBox = h('div', { class: 'fd-round', 'aria-live': 'polite' });
     const finishBtn = h('button', { class: 'btn btn-primary fd-finish', type: 'button', onclick: () => end(true) }, t('fdFinish'));
     const flag = h('button', { class: 'btn btn-ghost flag-btn', type: 'button', 'aria-label': t('giveUp'), title: t('giveUp'), onclick: () => end(false) }, MF.icon('flag'));
+    const used = () => new Set(st.team.filter((x) => x != null));
+    // busca: qualquer jogador (base principal + estendida) que passou pelo clube da rodada
+    const ac = MF.autocomplete({
+      placeholder: t('fdTypeFrom'),
+      source: (q) => {
+        const c = curClub();
+        const u = used();
+        return MF.searchPlayers(q, 8, (i) => !u.has(i) && P[i].clubs.includes(c)).map((i) => {
+          const p = P[i];
+          const ys = p.st.filter((s) => s[0] === c).map((s) => (s[1] === s[2] ? s[1] : s[1] + '–' + s[2])).join(', ');
+          return { id: i, label: p.n, sub: MF.pos(p.pos) + ' · ' + ys, flag: p.nat };
+        });
+      },
+      onPick: (it) => choose(it.id),
+    });
 
-    function rerollBtn(fn) {
-      const b = h('button', { class: 'btn btn-ghost fd-reroll', type: 'button', disabled: st.reroll >= 1, onclick: () => { if (st.reroll >= 1) return; st.reroll = 1; fn(); ctx.save(); } },
-        st.reroll >= 1 ? t('fdRerollUsed') : t('fdReroll') + ' (1)');
-      return b;
-    }
-    function closeSheet() { openSlot = null; sheet.hidden = true; MF.clear(sheet); board.classList.remove('fd-modal'); }
-    function showSheet(title, sub, body, closable, foot) {
+    function closeSheet() { sheet.hidden = true; MF.clear(sheet); board.classList.remove('fd-modal'); }
+    function formSheet() {
       MF.clear(sheet);
-      const panel = h('div', { class: 'fd-panel', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
-        h('div', { class: 'fd-head' }, h('div', null, h('h3', null, title), sub ? h('p', null, sub) : null),
-          closable ? h('button', { class: 'btn btn-ghost fd-x', type: 'button', 'aria-label': t('close'), onclick: () => { closeSheet(); paint(); } }, MF.icon('close')) : null),
-        body, foot || null);
-      sheet.appendChild(h('div', { class: 'fd-scrim', onclick: () => { if (closable) { closeSheet(); paint(); } } }));
+      const panel = h('div', { class: 'fd-panel', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('fdForm') },
+        h('div', { class: 'fd-head' }, h('div', null, h('h3', null, t('fdForm')), h('p', null, t('fdFormNote')))),
+        h('div', { class: 'fd-opts fd-forms' }, st.forms.map((fk) => h('button', { type: 'button', class: 'fd-form', onclick: () => { st.form = fk; st.phase = 'xi'; ctx.save(); closeSheet(); paint(); } },
+          h('span', { class: 'fd-form-pitch' }, FORMS[fk].s.map(([, x, y]) => h('i', { style: { left: x + '%', top: y + '%' } }))),
+          h('strong', null, fk)))));
+      sheet.appendChild(h('div', { class: 'fd-scrim' }));
       sheet.appendChild(panel);
       sheet.hidden = false;
       board.classList.add('fd-modal');
-      // foco: dentro do diálogo (só move o foco sozinho com mouse/teclado, não no toque)
-      const f = panel.querySelector('.fd-opts button:not(:disabled)');
-      if (f && window.matchMedia && matchMedia('(pointer: fine)').matches) f.focus({ preventScroll: true });
     }
-
-    // ---------------- fase 1: formação
-    function formSheet() {
-      const body = h('div', { class: 'fd-opts fd-forms' }, st.forms.map((fk) => h('button', { type: 'button', class: 'fd-form', onclick: () => pickForm(fk) },
-        h('span', { class: 'fd-form-pitch' }, FORMS[fk].s.map(([, x, y]) => h('i', { style: { left: x + '%', top: y + '%' } }))),
-        h('strong', null, fk))));
-      showSheet(t('fdForm'), t('fdFormNote'), body, false);
-    }
-    function pickForm(fk) {
-      st.form = fk; st.phase = 'cap';
-      // capitão: 5 cartas de nota alta, posições diferentes que existam na formação
-      const posSet = [...new Set(F().s.map((s) => s[0]))];
-      const rnd = MF.rng('fd28:cap:' + day + ':' + fk);
-      const cand = MF.draft.pool.filter((p) => p.r >= 85 && posSet.includes(p.pos));
-      const out = [];
-      for (const p of MF.shuffle(cand, rnd)) { if (out.length >= 5) break; if (out.filter((q) => MF.line(q.pos) === MF.line(p.pos)).length < 2) out.push(p); }
-      for (const p of cand) { if (out.length >= 5) break; if (!out.includes(p)) out.push(p); }
-      st.capOffer = out.map((p) => p.i);
+    function reroll() {
+      if (st.rerolls >= REROLLS[lvl] || ctx.finished()) return;
+      st.rerolls++;
+      let k = st.drawn.length + st.round;
+      let c = clubAt(k);
+      while (st.drawn.includes(c) && k < order.length * 2) c = clubAt(++k);
+      st.drawn.push(c);
       ctx.save();
       paint();
     }
-    // ---------------- fase 2: capitão
-    function capSheet() {
-      const body = h('div', { class: 'fd-opts' }, st.capOffer.map((pi) => card(pi, { tag: 'button', attrs: { type: 'button', onclick: () => pickCap(pi), 'aria-label': P[pi].n + ' ' + P[pi].r } })));
-      showSheet(t('fdCaptain'), st.form, body, false, h('div', { class: 'fd-foot' }, rerollBtn(() => {
-        const rnd = MF.rng('fd28:cap:' + day + ':' + st.form + ':r');
-        const posSet = [...new Set(F().s.map((s) => s[0]))];
-        const prev = new Set(st.capOffer);
-        st.capOffer = MF.sample(MF.draft.pool.filter((p) => p.r >= 84 && posSet.includes(p.pos) && !prev.has(p.i)), 5, rnd).map((p) => p.i);
-        paint();
-      })));
-    }
-    function pickCap(pi) {
+    function choose(pi) {
+      if (ctx.finished() || st.phase !== 'xi') return;
       const p = P[pi];
-      let k = F().s.findIndex((s) => s[0] === p.pos);
-      if (k < 0) k = F().s.findIndex((s) => fits(p, s[0]));
-      st.team[k] = pi; st.cap = k; st.capOffer = null; st.phase = 'xi';
-      ctx.save();
-      closeSheet();
-      paint(k);
-    }
-    // ---------------- fase 3: escalação
-    function openPick(k) {
-      if (ctx.finished()) return;
-      if (!st.offers[k]) {
-        st.offers[k] = offerFor(F().s[k][0], MF.rng('fd28:' + day + ':' + st.form + ':' + k), blocked(), neighbours(k));
-        ctx.save();
+      let k = target;
+      if (k == null || st.team[k] != null) {
+        // sem posição escolhida: a primeira vaga livre da posição dele (ou da mesma linha)
+        const f = F().s;
+        k = f.findIndex(([pos], j) => st.team[j] == null && fits(p, pos));
+        if (k < 0) k = f.findIndex(([pos], j) => st.team[j] == null && line(pos) === line(p.pos));
+        if (k < 0) k = st.team.findIndex((x) => x == null);
       }
-      openSlot = k;
-      const u = used();
-      const body = h('div', { class: 'fd-opts' }, st.offers[k].map((pi) => card(pi, { tag: 'button', pos: F().s[k][0], cls: u.has(pi) ? 'off' : '',
-        attrs: { type: 'button', disabled: u.has(pi), onclick: () => place(k, pi), 'aria-label': P[pi].n + ' ' + P[pi].r + (u.has(pi) ? ' · ' + t('fdUsed') : '') } })));
-      showSheet(t('fdPick') + ' · ' + MF.pos(F().s[k][0]), t('fdLinks'), body, true, h('div', { class: 'fd-foot' }, rerollBtn(() => {
-        const b = blocked(); st.offers[k].forEach((i) => b.add(i));
-        st.offers[k] = offerFor(F().s[k][0], MF.rng('fd28:' + day + ':' + st.form + ':' + k + ':r'), b, neighbours(k));
-        openPick(k);
-      })));
-    }
-    function place(k, pi) {
-      if (used().has(pi)) return;
+      if (k < 0) return;
       st.team[k] = pi;
-      delete st.offers[k];
+      st.from[k] = curClub();
+      st.round++;
+      target = null;
+      if (st.team.every((x) => x != null)) { ctx.save(); return end(true); }
+      // próximo clube (sem repetir)
+      let n = st.drawn.length + st.round;
+      let c = clubAt(n);
+      while (st.drawn.includes(c) && n < order.length * 2) c = clubAt(++n);
+      st.drawn.push(c);
       ctx.save();
-      closeSheet();
       paint(k);
-      const b = pitch.querySelectorAll('.fd-slot')[k]; if (b) b.focus({ preventScroll: true });
+      setTimeout(() => ac.focus && ac.focus(), 50);
     }
     function tapSlot(k) {
       if (ctx.finished() || st.phase !== 'xi') return;
       const pi = st.team[k];
       if (sel != null) {
         if (sel === k) { sel = null; return paint(); }
-        const a = st.team[sel];
-        if (fits(P[a], F().s[k][0]) && (pi == null || fits(P[pi], F().s[sel][0]))) {
-          st.team[k] = a; st.team[sel] = pi;
-          if (st.cap === sel) st.cap = k; else if (st.cap === k) st.cap = sel;
-          const from = sel; sel = null; ctx.save(); return paint(k, from);
-        }
-        if (pi == null) { MF.toast(t('noSlot'), 'bad'); return; }
-        sel = k; return paint();
+        const a = st.team[sel], fa = st.from[sel];
+        st.team[sel] = pi; st.from[sel] = st.from[k];
+        st.team[k] = a; st.from[k] = fa;
+        const from = sel; sel = null; ctx.save(); return paint(k, from);
       }
-      if (pi != null) { sel = k; return paint(); }
-      openPick(k);
+      if (pi != null) { sel = k; target = null; return paint(); }
+      target = target === k ? null : k;
+      paint();
+      if (target != null) setTimeout(() => ac.focus && ac.focus(), 30);
     }
 
     function paint(pop, pop2) {
       const done = ctx.finished();
       const r = st.form ? rate(st.team, st.form) : null;
       const nFilled = st.team.filter((x) => x != null).length;
-      stepPill.textContent = st.phase === 'form' ? t('fdForm') : st.phase === 'cap' ? t('fdCaptain') : t('fdStep') + ' ' + nFilled + '/11';
-      // campo
+      stepPill.textContent = st.phase === 'form' ? t('fdForm') : t('fdStep') + ' ' + nFilled + '/11';
       MF.clear(pitch);
       pitch.insertAdjacentHTML('beforeend', PITCH_SVG);
       const f = F() || FORMS[st.forms[0]];
@@ -323,34 +256,38 @@
       }
       f.s.forEach(([pos, x, y], k) => {
         const pi = st.team[k];
-        const canMove = sel != null && sel !== k && fits(P[st.team[sel]], pos) && (pi == null || fits(P[pi], f.s[sel][0]));
-        const cls = 'fd-slot' + (pi != null ? ' on' : '') + (sel === k ? ' sel' : '') + (canMove ? ' can' : '') + (pop === k || pop2 === k ? ' pop' : '') + (openSlot === k ? ' open' : '');
+        const cls = 'fd-slot' + (pi != null ? ' on' : '') + (sel === k ? ' sel' : '') + (sel != null && sel !== k ? ' can' : '') + (target === k ? ' open' : '') + (pop === k || pop2 === k ? ' pop' : '');
         const label = MF.pos(pos) + (pi != null ? ' · ' + P[pi].n + ' ' + P[pi].r + ' · ' + t('chemistry') + ' ' + r.pchem[k] : '');
         const inner = pi != null
-          ? [card(pi, { mini: true, pos }), h('span', { class: 'fd-chem c' + Math.min(3, Math.floor((r.pchem[k] || 0) / 3.4)) }, r.pchem[k]), st.cap === k ? h('span', { class: 'fd-capt', title: t('fdCap') }, 'C') : null]
+          ? [card(pi, { mini: true, pos, club: st.from[k] }), h('span', { class: 'fd-chem c' + Math.min(3, Math.floor((r.pchem[k] || 0) / 3.4)) }, r.pchem[k])]
           : [h('span', { class: 'fd-plus', 'aria-hidden': 'true' }, '+'), h('span', { class: 'fd-pos' }, MF.pos(pos))];
-        pitch.appendChild(h('button', { type: 'button', class: cls, style: { left: x + '%', top: y + '%' }, disabled: done || st.phase !== 'xi', 'aria-label': label, 'aria-pressed': sel === k ? 'true' : null, onclick: () => tapSlot(k) }, inner));
+        pitch.appendChild(h('button', { type: 'button', class: cls, style: { left: x + '%', top: y + '%' }, disabled: done || st.phase !== 'xi', 'aria-label': label, 'aria-pressed': sel === k || target === k ? 'true' : null, onclick: () => tapSlot(k) }, inner));
       });
-      // painel lateral (resumo, como o "Draft Summary")
+      // rodada: clube sorteado + busca
+      MF.clear(roundBox);
+      if (!done && st.phase === 'xi') {
+        const c = curClub();
+        const left = REROLLS[lvl] - st.rerolls;
+        roundBox.appendChild(h('div', { class: 'fd-club pop' },
+          MF.crest(clubs[c].n, 52),
+          h('div', null, h('span', { class: 'fd-club-l' }, t('fdRoundClub') + ' · ' + (st.round + 1) + '/11'), h('strong', null, clubs[c].n),
+            h('span', { class: 'fd-club-h' }, target != null ? t('fdForPos').replace('{p}', MF.pos(F().s[target][0])) : t('fdPickPos')))));
+        roundBox.appendChild(ac);
+        if (REROLLS[lvl] > 0) roundBox.appendChild(h('button', { class: 'btn btn-ghost fd-reroll', type: 'button', disabled: left <= 0, onclick: reroll }, left > 0 ? t('fdRerollClub') + ' (' + left + ')' : t('fdRerollUsed')));
+      }
       MF.clear(side);
       const stat = (n, l, cls) => h('div', { class: 'fd-stat' + (cls ? ' ' + cls : '') }, h('strong', null, n), h('span', null, l));
+      side.appendChild(roundBox);
       side.appendChild(h('div', { class: 'fd-stats' }, stat(r ? r.ovr : 0, t('fdRating')), stat(r ? r.chem : 0, t('chemistry')), stat(r ? r.score : 0, t('fdDraft'), 'big')));
       side.appendChild(h('p', { class: 'fd-formula' }, t('fdFormula')));
-      if (r) side.appendChild(h('div', { class: 'fd-counts' }, h('span', null, h('b', null, r.nLeagues), ' ', t('fdLeagues')), h('span', null, h('b', null, r.nClubs), ' ', t('fdClubs')), h('span', null, h('b', null, r.nNations), ' ', t('fdNations'))));
       if (!done) {
-        const msg = st.phase !== 'xi' ? '' : sel != null ? t('fdMove').replace('{p}', P[st.team[sel]].n) : nFilled < 11 ? t('fdTapSlot') + ' ' + t('fdSwapHint') : t('fdSwapHint');
-        if (msg) side.appendChild(h('p', { class: 'fd-msg', 'aria-live': 'polite' }, msg));
         if (st.form) side.appendChild(h('p', { class: 'fd-legend' }, h('i', { class: 'lg-g' }), ' ', h('i', { class: 'lg-o' }), ' ', h('i', { class: 'lg-r' }), ' ', t('fdLinks')));
         finishBtn.disabled = nFilled < 11;
-        finishBtn.title = nFilled < 11 ? t('fdNeed') : '';
         side.appendChild(h('div', { class: 'fd-actions' }, finishBtn, flag));
       } else if (r) {
         side.appendChild(h('p', { class: 'stars', 'aria-label': r.stars + '/5' }, h('span', { class: 'stars-row' }, Array.from({ length: 5 }, (_, i) => MF.icon(i < r.stars ? 'star' : 'starOff', 22))), ' ', h('span', null, r.label)));
       }
-      // seletores obrigatórios
       if (!done && st.phase === 'form') formSheet();
-      else if (!done && st.phase === 'cap') capSheet();
-      else if (openSlot == null && !sheet.hidden) closeSheet();
     }
     function end(complete) {
       if (ctx.finished()) return;
@@ -358,28 +295,19 @@
       const r = rate(st.team, st.form || st.forms[0]);
       const ok = complete && st.team.every((x) => x != null);
       st.scoreLabel = t('fdDraft') + ': ' + r.score + ' (' + r.ovr + ' + ' + r.chem + ')';
-      const line = '⭐'.repeat(r.stars) + '☆'.repeat(5 - r.stars) + '\n' + (st.form || '') + ' · ' + t('fdRating') + ' ' + r.ovr + ' · ' + t('chemistry') + ' ' + r.chem + ' · ' + t('fdDraft') + ' ' + r.score;
-      ctx.finish(ok, ok ? r.score : 0, line, { r: { ovr: r.ovr, chem: r.chem, score: r.score, stars: r.stars, label: r.label, nLeagues: r.nLeagues, nClubs: r.nClubs, nNations: r.nNations } });
+      const lineTxt = '⭐'.repeat(r.stars) + '☆'.repeat(5 - r.stars) + '\n' + (st.form || '') + ' · ' + t('fdRating') + ' ' + r.ovr + ' · ' + t('chemistry') + ' ' + r.chem + ' · ' + t('fdDraft') + ' ' + r.score;
+      ctx.finish(ok, ok ? r.score : 0, lineTxt, { r: { ovr: r.ovr, chem: r.chem, score: r.score, stars: r.stars, label: r.label } });
       paint();
     }
     ctx.onTimeUp = () => end(false);
-    sheet.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && openSlot != null) { const k = openSlot; closeSheet(); paint(); const b = pitch.querySelectorAll('.fd-slot')[k]; if (b) b.focus(); return; }
-      if (e.key !== 'Tab') return;
-      const els = [...sheet.querySelectorAll('button:not(:disabled)')];
-      if (!els.length) return;
-      const first = els[0], last = els[els.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    });
-
-    board.appendChild(h('div', { class: 'bar' }, stepPill, h('span', { class: 'pill' }, t('season') + ' 26/27'), ctx.timerEl));
+    // a base completa (todos os jogadores do Transfermarkt) chega em segundo plano
+    MF.loadExt && MF.loadExt();
+    board.appendChild(h('div', { class: 'bar' }, stepPill, ctx.timerEl));
     board.appendChild(h('div', { class: 'draft-layout fd-layout' }, pitch, side));
     board.appendChild(sheet);
     paint();
   }
-
   MF.rateDraft = rate;
   MF._draftForms = FORMS;
-  MF._draftOffer = offerFor; // usado nos testes
+  MF._draftClubs0 = clubPools;
 })();

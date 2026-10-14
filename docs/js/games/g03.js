@@ -4,45 +4,46 @@
   const MF = window.MF, h = MF.h, t = (k) => MF.t(k);
   const up = (s) => MF.norm(s).replace(/ /g, '').toUpperCase();
 
-  // palavras por dificuldade: fácil = só lendas e craques (nota 88+); normal = famosos; difícil = famosos ou nota 84+;
-  // lendário = qualquer jogador conhecido (nota 80+), nomes de até 10 letras
+  // palavra do dia por dificuldade (jogadores de 1990 em diante):
+  // fácil = craques muito conhecidos, com dicas; normal = famosos; difícil = conhecidos; lendário = qualquer jogador relevante
   const LV = {
-    easy: [(p) => (p.famous || p.legend) && p.r >= 88, 4, 7],
-    normal: [(p) => p.famous, 4, 8],
-    hard: [(p) => p.famous || p.r >= 84, 4, 9],
-    legend: [(p) => p.famous || p.legend || p.r >= 80, 4, 10],
+    easy: [(p) => (p.famous || p.legend) && p.r >= 86, 4, 7, 6],
+    normal: [(p) => p.famous || p.r >= 83, 4, 8, 6],
+    hard: [(p) => p.r >= 79, 4, 9, 5],
+    legend: [(p) => p.r >= 75, 4, 10, 5],
   };
-  function dictionary() {
-    if (MF._wdict) return MF._wdict;
-    const dict = new Set();
-    for (const p of MF.data.P) {
-      for (const k of p.keys) for (const w of k.split(' ')) if (w.length >= 3 && w.length <= 10) dict.add(w.toUpperCase());
-      const w = up(p.fn);
-      if (w.length >= 3) dict.add(w);
-    }
-    return (MF._wdict = dict);
+  // nome de guerra: o apelido curado; senão o nome de uma palavra (Casemiro) ou o sobrenome (Haaland)
+  function warName(p) {
+    const fn = (p.fn || '').trim();
+    if (fn && !/\s/.test(fn)) return fn;
+    const toks = p.n.trim().split(/\s+/);
+    if (toks.length === 1) return toks[0];
+    if (toks.length === 2 && !['Brazil', 'Portugal'].includes(p.nat) && !/^(junior|júnior|jr\.?|filho|neto)$/i.test(toks[1])) return toks[1];
+    return null;
   }
   function pools(lvl) {
-    MF._w = MF._w || {};
-    if (MF._w[lvl]) return MF._w[lvl];
+    MF._w2 = MF._w2 || {};
+    if (MF._w2[lvl]) return MF._w2[lvl];
     const [ok, lo, hi] = LV[lvl] || LV.normal;
     const words = new Map();
-    for (const p of MF.data.P) {
-      if (!ok(p) || !/^[a-zà-ÿ'.-]+$/i.test(p.fn.replace(/\s/g, '')) || /\s/.test(p.fn.trim())) continue;
-      const w = up(p.fn);
+    for (const p of MF.data.P.slice(0, MF.CORE_N)) {
+      if (!MF.era(p) || !ok(p)) continue;
+      const nm = warName(p);
+      if (!nm || !/^[a-zà-ÿ'.-]+$/i.test(nm)) continue;
+      const w = up(nm);
       if (w.length < lo || w.length > hi) continue;
       if (!words.has(w) || words.get(w).r < p.r) words.set(w, p);
     }
     const list = [...words.keys()].sort();
-    return (MF._w[lvl] = { list, map: words, dict: dictionary() });
+    return (MF._w2[lvl] = { list, map: words });
   }
 
   MF.registerGame({
-    num: 3, slug: 'craque-secreto', chances: 5,
+    num: 3, slug: 'craque-secreto', tag: () => t('wdChances'),
     rules: {
-      pt: ['Descubra o nome de guerra do jogador (como ele é conhecido no futebol, ex.: KAKÁ, ROMÁRIO, MESSI). Você tem 5 chances; no 5º erro o desafio termina como errado.', 'Verde: letra certa no lugar certo. Amarelo: a letra existe, mas em outro lugar. Cinza: a letra não está no nome.', 'Acentos não contam. Fácil: craques muito conhecidos, com seleção e posição como dica, e vale qualquer palavra. Normal: jogadores famosos; só valem nomes da base. Difícil: mais jogadores, e as letras verdes e amarelas precisam ser usadas nos palpites seguintes. Lendário: qualquer jogador conhecido, mesma regra do difícil e o teclado não mostra cores.'],
-      en: ['Find the player’s football name (how he is known, e.g. KAKÁ, ROMÁRIO, MESSI). You have 5 chances; on the 5th miss the challenge ends as lost.', 'Green: right letter, right spot. Yellow: the letter is in another spot. Grey: not in the name.', 'Accents do not matter. Easy: very well-known stars, with nation and position as a hint, and any word is accepted. Normal: famous players; only names from our database. Hard: more players, and green and yellow letters must be reused in later guesses. Legendary: any known player, same rule as hard and the keyboard shows no colours.'],
-      es: ['Descubre el nombre futbolístico del jugador (cómo se le conoce, ej.: KAKÁ, ROMÁRIO, MESSI). Tienes 5 oportunidades; al 5.º fallo el desafío termina como perdido.', 'Verde: letra correcta en su lugar. Amarillo: la letra está en otro lugar. Gris: no está en el nombre.', 'Las tildes no cuentan. Fácil: cracks muy conocidos, con selección y posición como pista, y vale cualquier palabra. Normal: jugadores famosos; solo valen nombres de la base. Difícil: más jugadores, y las letras verdes y amarillas deben usarse en los siguientes intentos. Legendario: cualquier jugador conocido, misma regla que difícil y el teclado no muestra colores.'],
+      pt: ['Descubra o nome de guerra do jogador (como ele é conhecido no futebol, ex.: KAKÁ, ROMÁRIO, MESSI). Só jogadores de 1990 para cá.', 'Escreva qualquer palavra com o número certo de letras — vale até errar de propósito para descobrir letras. Verde: letra certa no lugar certo. Amarelo: a letra existe em outro lugar. Cinza: não está no nome. Acentos não contam.', 'Fácil: craques muito conhecidos, com seleção, posição e último clube como dica, e 6 chances. Normal: jogadores famosos, com a posição como dica, e 6 chances. Difícil: jogadores conhecidos, sem dicas, 5 chances. Lendário: qualquer jogador relevante, sem dicas, 5 chances e o teclado não mostra cores.'],
+      en: ['Find the player’s football name (how he is known, e.g. KAKÁ, ROMÁRIO, MESSI). Only players from 1990 on.', 'Type any word with the right number of letters — you can even miss on purpose to find letters. Green: right letter, right spot. Yellow: the letter is elsewhere. Grey: not in the name. Accents do not matter.', 'Easy: very well-known stars, with nation, position and last club as hints, and 6 chances. Normal: famous players, position as a hint, 6 chances. Hard: known players, no hints, 5 chances. Legendary: any relevant player, no hints, 5 chances and the keyboard shows no colours.'],
+      es: ['Descubre el nombre futbolístico del jugador (cómo se le conoce, ej.: KAKÁ, ROMÁRIO, MESSI). Solo jugadores de 1990 en adelante.', 'Escribe cualquier palabra con el número correcto de letras — vale incluso fallar a propósito para descubrir letras. Verde: letra correcta en su lugar. Amarillo: la letra está en otro lugar. Gris: no está en el nombre. Las tildes no cuentan.', 'Fácil: cracks muy conocidos, con selección, posición y último club como pista, y 6 oportunidades. Normal: jugadores famosos, la posición como pista, 6 oportunidades. Difícil: jugadores conocidos, sin pistas, 5 oportunidades. Legendario: cualquier jugador relevante, sin pistas, 5 oportunidades y el teclado no muestra colores.'],
     },
     options: [
       MF.levelOpt(),
@@ -54,10 +55,10 @@
     },
     play(board, ctx) {
       const lvl = MF.level(ctx.state);
-      const { list, map, dict } = pools(lvl);
-      const word = list[MF.daily(lvl === 'normal' ? 'g3-wordle' : 'g3-wordle:' + lvl, list.length)];
+      const { list, map } = pools(lvl);
+      const word = list[MF.daily('g3-wordle2:' + lvl, list.length)];
       const player = map.get(word);
-      const L = word.length, ROWS = 5;
+      const L = word.length, ROWS = LV[lvl][3];
       const st = ctx.state;
       st.guesses = st.guesses || [];
       let cur = '';
@@ -108,19 +109,8 @@
         paint();
       }
       function submit() {
+        // qualquer palavra com o tamanho certo vale (dá para errar de propósito e descobrir letras)
         if (cur.length !== L) { MF.anim(grid.children[st.guesses.length], 'shake'); return MF.toast(L + ' ' + t('letters')); }
-        if (lvl !== 'easy' && !dict.has(cur)) { MF.anim(grid.children[st.guesses.length], 'shake'); return MF.toast(t('notFound')); }
-        if (lvl === 'hard' || lvl === 'legend') {
-          // regra difícil: verdes no mesmo lugar e amarelas presentes no palpite
-          for (const g of st.guesses) {
-            const sc = score(g), need = {};
-            for (let i = 0; i < L; i++) {
-              if (sc[i] === 'g' && cur[i] !== g[i]) { MF.anim(grid.children[st.guesses.length], 'shake'); return MF.toast(t('wdKeepGreen').replace('{l}', g[i]).replace('{n}', i + 1)); }
-              if (sc[i] !== 'x') need[g[i]] = (need[g[i]] || 0) + 1;
-            }
-            for (const [l, n] of Object.entries(need)) if ([...cur].filter((c) => c === l).length < n) { MF.anim(grid.children[st.guesses.length], 'shake'); return MF.toast(t('wdUseLetter').replace('{l}', l)); }
-          }
-        }
         st.guesses.push(cur);
         cur = '';
         ctx.save();
@@ -144,11 +134,16 @@
       };
       document.addEventListener('keydown', onKey);
       board.appendChild(h('div', { class: 'bar' }, h('span', { class: 'pill' }, L + ' ' + t('letters')),
-        lvl === 'easy' ? h('span', { class: 'pill' }, MF.flag(player.nat), ' ', MF.pos(player.pos)) : null, ctx.timerEl));
+        lvl === 'easy' ? h('span', { class: 'pill' }, MF.flag(player.nat), ' ', MF.pos(player.pos), ' · ', lastClub(player)) : lvl === 'normal' ? h('span', { class: 'pill' }, MF.pos(player.pos)) : null,
+        h('span', { class: 'pill' }, ROWS + ' ' + t('chancesWord')), ctx.timerEl));
       board.appendChild(grid);
       board.appendChild(kb);
       paint();
     },
     renderDetail(d) { return MF.playerReveal(d.pi); },
   });
+  function lastClub(p) {
+    const s = p.st.slice().sort((a, b) => b[2] - a[2] || b[1] - a[1])[0];
+    return s ? MF.data.clubs[s[0]].n : '';
+  }
 })();
