@@ -79,7 +79,7 @@
       const { P, clubs } = MF.data;
       const st = ctx.state;
       const lvl = MF.level(st);
-      const L = lineup(MF.daily('g11-onde-lendas:' + lvl, 900), lvl);
+      const L = lineup(MF.dailyPick('g11-onde-lendas2', lvl, () => [...Array(900).keys()]), lvl);
       const items = L.slots.map((s) => ({ ...s, name: P[s.pi].n, nat: P[s.pi].nat }));
       // aceita qualquer clube do jogador cuja passagem toque o período mostrado
       const okClubs = items.map((it) => {

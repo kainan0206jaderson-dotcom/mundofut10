@@ -73,7 +73,7 @@ const LEVEL = { easy: [0, 25, 0, 6], normal: [0, 80, 60, 3], hard: [40, 260, 25,
       const mode = MF.level(st);
       // sequência de grids sem repetição: cada dia percorre uma permutação de 500 grids distintos
       const N = 500;
-      const no = MF.daily('g5-grid2:' + mode, N);
+      const no = MF.dailyPick('g5-grid3', mode, () => [...Array(N).keys()]);
       let grid = buildGrid(mode, no);
       for (let k = 1; !grid && k < 20; k++) grid = buildGrid(mode, no + '-' + k);
       if (!grid) grid = buildGrid('easy', no);

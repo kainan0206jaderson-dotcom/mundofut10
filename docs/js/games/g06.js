@@ -121,8 +121,9 @@
       const all = categories();
       // Fácil: categorias populares; cada nível sobe a régua (no Lendário vale qualquer uma)
       const distinct = (c) => new Set(c.items.map((x) => x.v)).size;
-      const cats = all.filter((c) => (lvl === 'legend' ? true : lvl === 'hard' ? c.lv >= 1 : c.lv <= LV) && (c.fixed || distinct(c) >= 10));
-      const cat = cats[MF.daily('g6-pyr2:' + lvl, cats.length)];
+      const LVN = { easy: 0, normal: 1, hard: 2, legend: 3 };
+      const catsFor = (l) => all.filter((c) => (l === 'legend' ? true : l === 'hard' ? c.lv >= 1 : c.lv <= LVN[l]) && (c.fixed || distinct(c) >= 10));
+      const cat = MF.dailyPick('g6-pyr3', lvl, catsFor, (c) => c.key);
       const items = pick(cat, lvl, MF.rng('pyr2:' + MF.today() + ':' + lvl + ':' + cat.key));
       const sorted = items.map((x, i) => i).sort((a, b) => items[b].v - items[a].v);
       const rankVal = sorted.map((i) => items[i].v);

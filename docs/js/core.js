@@ -71,6 +71,53 @@
     const order = MF.shuffle([...Array(n).keys()], MF.rng(gameKey + ':ciclo:' + cycle));
     return order[k];
   };
+  /**
+   * Desafio do dia por dificuldade, sem repetir a RESPOSTA:
+   * - cada nível percorre a sua própria permutação do seu conjunto (sem repetir até esgotar);
+   * - a mesma resposta (ex.: o mesmo jogador em cartas/temporadas diferentes) não volta em
+   *   NENHUM nível por um bom tempo (≈ metade do tamanho do conjunto em dias, até 1 ano);
+   * - no mesmo dia, cada nível tem uma resposta diferente.
+   * poolFor(nível) → lista de itens; idOf(item) → identidade da resposta.
+   * O histórico é recalculado desde o lançamento, igual para todo mundo.
+   */
+  MF._dp = {};
+  MF.dailyPick = (gameKey, lvl, poolFor, idOf) => {
+    const today = MF.today();
+    const ck = gameKey + '|' + today;
+    if (!MF._dp[ck]) {
+      const id = idOf || ((x) => x);
+      const S = MF.LEVELS.map((l) => {
+        const pool = poolFor(l) || [];
+        return { l, pool, n: pool.length, R: Math.max(1, Math.min(365, Math.ceil(pool.length / 2))), order: null, pos: 0, cycle: -1 };
+      });
+      const last = new Map(); // identidade -> último dia usado (qualquer nível)
+      const res = {};
+      for (let d = 0; d <= Math.max(0, today); d++) {
+        for (const s of S) {
+          if (!s.n) { res[s.l] = null; continue; }
+          if (!s.order || s.pos >= s.n) {
+            s.cycle++; s.pos = 0;
+            s.order = MF.shuffle([...Array(s.n).keys()], MF.rng(gameKey + ':' + s.l + ':ciclo:' + s.cycle));
+          }
+          // primeiro item da fila cuja resposta não saiu (em nível nenhum) nos últimos R dias
+          let best = -1, bestAge = -1;
+          for (let k = s.pos; k < s.n; k++) {
+            const used = last.get(id(s.pool[s.order[k]]));
+            const age = used == null ? Infinity : d - used;
+            if (age > s.R) { best = k; break; }
+            if (age > bestAge) { bestAge = age; best = k; }
+          }
+          [s.order[s.pos], s.order[best]] = [s.order[best], s.order[s.pos]];
+          const item = s.pool[s.order[s.pos++]];
+          last.set(id(item), d);
+          if (d === today) res[s.l] = item;
+        }
+      }
+      MF._dp[ck] = res;
+    }
+    const r = MF._dp[ck];
+    return r[lvl] !== undefined ? r[lvl] : r.normal;
+  };
   MF.dayRng = (gameKey, extra) => MF.rng(gameKey + ':dia:' + MF.today() + ':' + (extra || ''));
 
   // ------------------------------------------------------------------ armazenamento local
@@ -82,8 +129,8 @@
 
   // estado do jogo do dia — um por dificuldade (cada dificuldade pode ser jogada uma vez por dia)
   MF.LEVELS = ['easy', 'normal', 'hard', 'legend'];
-  MF.dayState = (game, lvl) => MF.load('d:' + game + ':' + (lvl || 'normal') + ':' + MF.today(), null);
-  MF.saveDayState = (game, st) => MF.save('d:' + game + ':' + ((st && st.opts && st.opts.mode) || 'normal') + ':' + MF.today(), st);
+  MF.dayState = (game, lvl) => MF.load('d2:' + game + ':' + (lvl || 'normal') + ':' + MF.today(), null);
+  MF.saveDayState = (game, st) => MF.save('d2:' + game + ':' + ((st && st.opts && st.opts.mode) || 'normal') + ':' + MF.today(), st);
   MF.dayStates = (game) => {
     const out = {};
     for (const l of MF.LEVELS) { const s = MF.dayState(game, l); if (s) out[l] = s; }

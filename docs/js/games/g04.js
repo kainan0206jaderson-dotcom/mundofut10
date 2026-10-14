@@ -47,9 +47,9 @@
       const { games, P, clubs, leagues } = MF.data;
       const st = ctx.state;
       const lvl = MF.level(st);
-      const OK = { easy: (c) => c[2] >= 86, normal: (c) => c[2] >= 80, hard: () => true, legend: (c) => c[2] < 85 }[lvl];
-      const cards = games.cards.filter(OK);
-      const card = cards[MF.daily('g4-card2:' + lvl, cards.length)];
+      const OK = { easy: (c) => c[2] >= 86, normal: (c) => c[2] >= 80, hard: () => true, legend: (c) => c[2] < 85 };
+      // a resposta é o jogador: cartas diferentes do mesmo jogador não se repetem em dias próximos
+      const card = MF.dailyPick('g4-card3', lvl, (l) => games.cards.filter(OK[l]), (c) => c[0]);
       const [pi, ver, ovr, pos, ci, val, age] = card;
       const p = P[pi];
       const club = clubs[ci];

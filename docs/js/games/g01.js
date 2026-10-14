@@ -23,7 +23,7 @@
       const lvl = MF.level(st);
       const rows = games.statdle;
       // cada dificuldade tem o seu jogador do dia
-      const row = rows[MF.daily('g1-statdle:' + lvl, rows.length)];
+      const row = MF.dailyPick('g1-statdle4', lvl, () => rows, (r) => r[0]);
       const [pi, season, league, club, apps, goals, ast, age, pos, num] = row;
       const target = P[pi];
       const LOCK = lvl === 'legend' ? ['club', 'nat', 'shirt'] : lvl === 'hard' ? ['club', 'nat'] : [];

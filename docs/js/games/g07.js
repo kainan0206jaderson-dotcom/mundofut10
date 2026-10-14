@@ -114,7 +114,7 @@
       const lvl = MF.level(st);
       const SKIPS = LV[lvl][0];
       const five = SKIPS < Infinity;
-      const no = MF.daily('g7-bingo3:' + lvl, 1000);
+      const no = MF.dailyPick('g7-bingo4', lvl, () => [...Array(1000).keys()]);
       const awardKey = AWARD_ORDER[((MF.today() % 4) + 4) % 4];
       let B = build(no, awardKey, lvl);
       for (let k = 1; !B && k < 10; k++) B = build(no + ':' + k, awardKey, lvl);

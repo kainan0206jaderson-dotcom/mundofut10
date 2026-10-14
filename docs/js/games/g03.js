@@ -56,7 +56,7 @@
     play(board, ctx) {
       const lvl = MF.level(ctx.state);
       const { list, map } = pools(lvl);
-      const word = list[MF.daily('g3-wordle2:' + lvl, list.length)];
+      const word = MF.dailyPick('g3-wordle3', lvl, (l) => pools(l).list);
       const player = map.get(word);
       const L = word.length, ROWS = LV[lvl][3];
       const st = ctx.state;

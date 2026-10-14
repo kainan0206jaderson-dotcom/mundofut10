@@ -31,9 +31,9 @@
       const { games, P } = MF.data;
       const st = ctx.state;
       const lvl = MF.level(st);
-      const RANGE = { easy: [2008, 2025], normal: [1998, 2025], hard: [1990, 2025], legend: [1990, 2007] }[lvl];
-      const years = Object.keys(games.ballon).filter((y) => +y >= RANGE[0] && +y <= RANGE[1]).sort();
-      const year = years[MF.daily('g2-ballon2:' + lvl, years.length)];
+      const RANGES = { easy: [2008, 2025], normal: [1998, 2025], hard: [1990, 2025], legend: [1990, 2007] };
+      const yearsFor = (l) => { const R = RANGES[l]; return Object.keys(games.ballon).filter((y) => +y >= R[0] && +y <= R[1]).sort(); };
+      const year = MF.dailyPick('g2-ballon3', lvl, yearsFor);
       const rows = games.ballon[year];
       const MAXMISS = lvl === 'legend' ? 5 : Infinity;
       st.found = st.found || [];

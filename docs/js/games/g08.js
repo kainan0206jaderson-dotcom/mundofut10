@@ -101,10 +101,11 @@
       const st = ctx.state;
       const lvl = MF.level(st);
       const { cats, core } = categories();
-      const N = core.filter((p) => p.r >= NOTABLE[lvl] || (lvl !== 'easy' && p.famous));
-      const LVL = { easy: [0], normal: [0, 1], hard: [1, 2], legend: [2, 3] }[lvl];
-      const ok = cats.filter((c) => LVL.includes(c.lv) && N.filter(c.test).length >= 6 && N.filter((p) => !c.test(p)).length >= 10);
-      const cat = ok[MF.daily('g8-imp2:' + lvl, ok.length)];
+      const NFor = (l) => core.filter((p) => p.r >= NOTABLE[l] || (l !== 'easy' && p.famous));
+      const N = NFor(lvl);
+      const LVLS = { easy: [0], normal: [0, 1], hard: [1, 2], legend: [2, 3] };
+      const okFor = (l) => { const n = NFor(l); return cats.filter((c) => LVLS[l].includes(c.lv) && n.filter(c.test).length >= 6 && n.filter((p) => !c.test(p)).length >= 10); };
+      const cat = MF.dailyPick('g8-imp3', lvl, okFor, (c) => c.key);
       const rnd = MF.rng('imp2:' + MF.today() + ':' + lvl);
       const ins = N.filter(cat.test).sort((a, b) => b.r - a.r);
       const outs = N.filter((p) => !cat.test(p));

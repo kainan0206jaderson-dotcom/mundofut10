@@ -39,7 +39,15 @@
     if (new Date().getSeconds() === 0) document.querySelectorAll('[data-sky]').forEach(paintSky);
     const ms = MF.nextReset() - Date.now();
     document.querySelectorAll('[data-reset]').forEach((el) => (el.textContent = MF.fmtCountdown(ms)));
-    if (ms <= 0) location.reload();
+    if (ms <= 0 || MF.today() !== MF._bootDay) location.reload();
+  }
+  // o dia virou com o app em segundo plano (celular): recarrega ao voltar, para trazer os desafios novos
+  if (MF._bootDay == null) {
+    MF._bootDay = MF.today();
+    const fresh = () => { if (MF.today() !== MF._bootDay) location.reload(); };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) fresh(); });
+    addEventListener('pageshow', (e) => { if (e.persisted) fresh(); });
+    addEventListener('focus', fresh);
   }
   // cabeçalho ganha fundo sólido ao rolar (no celular a lista passa por baixo dele)
   if (!MF._scrollHook) { MF._scrollHook = true; addEventListener('scroll', () => { const t = document.querySelector('.top'); if (t) t.classList.toggle('scrolled', scrollY > 24); }, { passive: true }); }

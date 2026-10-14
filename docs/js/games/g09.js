@@ -32,10 +32,11 @@
       const { P } = MF.data;
       const st = ctx.state;
       const lvl = MF.level(st);
-      const MIN = { easy: 88, normal: 84, hard: 80, legend: 76 }[lvl];
+      const MINS = { easy: 88, normal: 84, hard: 80, legend: 76 };
+      const MIN = MINS[lvl];
       const MAX_G = lvl === 'legend' ? 15 : Infinity;
-      const pool = P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && p.r >= MIN && (lvl !== 'easy' || p.famous) && p.st.length >= 2 && !p.natGuess).map((p) => p.i);
-      const target = P[pool[MF.daily('g9-dist2:' + lvl, pool.length)]];
+      const poolFor = (l) => P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && p.r >= MINS[l] && (l !== 'easy' || p.famous) && p.st.length >= 2 && !p.natGuess).map((p) => p.i);
+      const target = P[MF.dailyPick('g9-dist3', lvl, poolFor)];
       const tm = MF.teammates(target.i);
       const why = lvl === 'easy' || lvl === 'normal';
       st.guesses = st.guesses || [];
