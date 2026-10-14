@@ -37,9 +37,9 @@
   MF.registerGame({
     num: 4, slug: 'descubra-o-card',
     rules: {
-      pt: ['Uma carta real do FIFA / EA FC (FIFA 15 a EA FC 24) está escondida — este é o modo dedicado às cartas do videogame.', 'A primeira dica é o tipo da carta e a edição. Cada palpite errado ou pulo revela a próxima dica. Acertou, a carta vira na tela.', 'Fácil: cartas de craques (geral 86+), com seleção e posição logo no começo e palpites livres. Normal: cartas 80+, palpites livres. Difícil: qualquer carta, dicas na ordem mais difícil e até 8 palpites. Lendário: cartas abaixo de 85, o clube nunca aparece e só 4 palpites.'],
-      en: ['A real FIFA / EA FC card (FIFA 15 to EA FC 24) is hidden — this is the mode dedicated to video game cards.', 'The first hint is the card type and edition. Each wrong guess or skip reveals the next hint. Get it right and the card flips over.', 'Easy: star cards (86+ overall), with nation and position early and unlimited guesses. Normal: 80+ cards, unlimited guesses. Hard: any card, hints in the hardest order and up to 8 guesses. Legendary: cards under 85, the club never shows and only 4 guesses.'],
-      es: ['Una carta real de FIFA / EA FC (FIFA 15 a EA FC 24) está oculta — este es el modo dedicado a las cartas del videojuego.', 'La primera pista es el tipo de carta y la edición. Cada fallo o salto revela la siguiente pista. Si aciertas, la carta se da la vuelta.', 'Fácil: cartas de cracks (media 86+), con selección y posición al principio e intentos libres. Normal: cartas 80+, intentos libres. Difícil: cualquier carta, pistas en el orden más difícil y hasta 8 intentos. Legendario: cartas por debajo de 85, el club nunca aparece y solo 4 intentos.'],
+      pt: ['Uma carta real do FIFA / EA FC (FIFA 15 a EA FC 26) está escondida — este é o modo dedicado às cartas do videogame.', 'A primeira dica é o tipo da carta e a edição. Cada palpite errado ou pulo revela a próxima dica. Acertou, a carta vira na tela.', 'Fácil: cartas de craques (geral 86+), com seleção e posição logo no começo e palpites livres. Normal: cartas 80+, palpites livres. Difícil: qualquer carta, dicas na ordem mais difícil e até 8 palpites. Lendário: cartas abaixo de 85, o clube nunca aparece e só 4 palpites.'],
+      en: ['A real FIFA / EA FC card (FIFA 15 to EA FC 26) is hidden — this is the mode dedicated to video game cards.', 'The first hint is the card type and edition. Each wrong guess or skip reveals the next hint. Get it right and the card flips over.', 'Easy: star cards (86+ overall), with nation and position early and unlimited guesses. Normal: 80+ cards, unlimited guesses. Hard: any card, hints in the hardest order and up to 8 guesses. Legendary: cards under 85, the club never shows and only 4 guesses.'],
+      es: ['Una carta real de FIFA / EA FC (FIFA 15 a EA FC 26) está oculta — este es el modo dedicado a las cartas del videojuego.', 'La primera pista es el tipo de carta y la edición. Cada fallo o salto revela la siguiente pista. Si aciertas, la carta se da la vuelta.', 'Fácil: cartas de cracks (media 86+), con selección y posición al principio e intentos libres. Normal: cartas 80+, intentos libres. Difícil: cualquier carta, pistas en el orden más difícil y hasta 8 intentos. Legendario: cartas por debajo de 85, el club nunca aparece y solo 4 intentos.'],
     },
     options: [MF.levelOpt(), MF.timerOpt([0, 90, 60])],
     preview() { return h('div', { class: 'fcard gold mini back', 'aria-hidden': 'true' }, h('span', null, '?')); },
@@ -49,7 +49,9 @@
       const lvl = MF.level(st);
       const OK = { easy: (c) => c[2] >= 86, normal: (c) => c[2] >= 80, hard: () => true, legend: (c) => c[2] < 85 };
       // a resposta é o jogador: cartas diferentes do mesmo jogador não se repetem em dias próximos
-      const card = MF.dailyPick('g4-card3', lvl, (l) => games.cards.filter(OK[l]), (c) => c[0]);
+      // cartas do EA FC 25 e 26 entram a partir do desafio nº 4 (15/10/2026); antes disso, o sorteio fica como era
+      const NEW = MF.today() >= 3;
+      const card = MF.dailyPick(NEW ? 'g4-card4' : 'g4-card3', lvl, (l) => games.cards.filter((c) => (NEW || c[1] < 25) && OK[l](c)), (c) => c[0]);
       const [pi, ver, ovr, pos, ci, val, age] = card;
       const p = P[pi];
       const club = clubs[ci];
@@ -58,7 +60,7 @@
       const H = {
         type: [t('cardType'), h('span', { class: 'tier-chip t' + MF.cardTier(ovr) }, MF.cardType(ovr) + ' · ' + MF.edition(ver))],
         pos: [t('position') + ' · ' + t('rating'), MF.pos(pos) + ' · ' + ovr],
-        age: [t('age') + ' · ' + t('value'), age + ' · ' + MF.money(val)],
+        age: val == null ? [t('age'), String(age)] : [t('age') + ' · ' + t('value'), age + ' · ' + MF.money(val)], // o FC 25 não traz o valor
         nat: [t('nationality'), h('span', { class: 'v-club' }, MF.flag(p.nat), MF.country(p.nat))],
         club: [t('club') + ' · ' + t('league'), h('span', { class: 'v-club' }, MF.crest(club.n, 20), club.n + ' · ' + (leagues[club.l] || ''))],
       };
