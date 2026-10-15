@@ -84,7 +84,14 @@
       // aceita qualquer clube do jogador cuja passagem toque o período mostrado
       const okClubs = items.map((it) => {
         const s = new Set([it.club]);
-        P[it.pi].st.forEach(([c, a, b]) => { if (a <= it.b && b >= it.a) s.add(c); });
+        // passagem que só encosta no ano de transferência (ex.: Lampard West Ham 96/01 x Chelsea 01/14) não vale;
+        // passagens de um ano só valem se caírem dentro do período
+        P[it.pi].st.forEach(([c, a, b]) => {
+          const ov = Math.min(b, it.b) - Math.max(a, it.a);
+          const y = Math.max(a, it.a); // único ano em comum quando ov === 0
+          const ok = ov > 0 || (ov === 0 && (a === b || (it.a === it.b && a < y && b > y)));
+          if (ok) s.add(c);
+        });
         // mesmo clube com outro nome na base (ex.: grafias diferentes)
         const nm = MF.norm(clubs[it.club].n);
         clubs.forEach((c) => { if (MF.norm(c.n) === nm) s.add(c.i); });

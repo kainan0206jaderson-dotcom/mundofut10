@@ -80,7 +80,7 @@
         hints.forEach(([l, v], i) => list.appendChild(h('li', { class: 'hint' + (i < shown ? ' on' : '') + (i === newIdx ? ' flip' : '') },
           h('span', { class: 'hint-n' }, t('hint') + ' ' + (i + 1)), h('span', { class: 'hint-l' }, l), h('span', { class: 'hint-v' }, i < shown ? v : '?'))));
         MF.clear(guesses);
-        st.guesses.forEach((g) => guesses.appendChild(h('li', { class: g === pi ? 'hit' : g == null ? 'skip' : 'miss' }, g == null ? t('skip') : P[g].n)));
+        st.guesses.forEach((g) => guesses.appendChild(h('li', { class: MF.same(g, pi) ? 'hit' : g == null ? 'skip' : 'miss' }, g == null ? t('skip') : P[g].n)));
         left.textContent = t('attempts') + ': ' + st.guesses.filter((g) => g != null).length + (MAXG < Infinity ? '/' + MAXG : '');
         skipBtn.disabled = st.guesses.length >= hints.length - 1 || done;
         MF.clear(slot);
@@ -92,14 +92,14 @@
         if (g == null && st.guesses.length >= hints.length - 1) return;
         st.guesses.push(g);
         ctx.save();
-        if (g === pi) return end(true);
+        if (MF.same(g, pi)) return end(true);
         if (g != null) { MF.toast(t('wrong') + ': ' + P[g].n, 'bad'); MF.anim(slot, 'shake'); }
         if (st.guesses.filter((x) => x != null).length >= MAXG) return end(false);
         paint(Math.min(st.guesses.length, hints.length - 1));
       }
       function end(win) {
         const tries = st.guesses.filter((g) => g != null).length;
-        const line = st.guesses.map((g) => (g === pi ? '🟩' : g == null ? '⬜' : '🟥')).join('') + ' · ' + (win ? tries + ' ' + t('tries') : '❌');
+        const line = st.guesses.map((g) => (MF.same(g, pi) ? '🟩' : g == null ? '⬜' : '🟥')).join('') + ' · ' + (win ? tries + ' ' + t('tries') : '❌');
         st.scoreLabel = p.n + ' · ' + ovr + ' · ' + MF.edition(ver);
         ctx.finish(win, win ? tries : 0, line);
         ac.hidden = true;

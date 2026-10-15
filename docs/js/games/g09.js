@@ -66,7 +66,7 @@
         if (st.guesses.includes(g)) return MF.toast(t('already'));
         st.guesses.push(g);
         ctx.save();
-        if (g === target.i) return end(true);
+        if (MF.same(g, target.i)) return end(true);
         if (st.guesses.length >= MAX_G) return end(false);
         paint(g);
       }

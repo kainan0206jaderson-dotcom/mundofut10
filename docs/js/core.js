@@ -172,7 +172,33 @@
     );
     const P = db.players.map((r, i) => MF._player(r, i, false));
     const clubs = db.clubs.map((c, i) => ({ i, n: c[0], l: c[1], cty: c[2] || '', tm: c[3] || '' }));
+    // nomes em outro alfabeto (ex.: '久保 Kubo'): a partir de 16/10/2026 aparecem pelo nome latino
+    if (MF.isNew && MF.isNew()) for (const p of P) {
+      if (!/[^\u0000-\u024f\u1e00-\u1eff\s.'-]/.test(p.n)) continue;
+      const lat = p.alias.find((a) => /^[\u0000-\u024f\u1e00-\u1eff\s.'-]+$/.test(a) && /\S{3,} \S{3,}/.test(a));
+      if (lat) { p.n = lat; p.fn = lat; p.alt = true; }
+    }
     for (const p of P) MF._derive(p, clubs);
+    // fichas duplicadas do mesmo jogador (nome em outro alfabeto + nome latino, mesma seleção e nascimento):
+    // a mais completa é a principal; a busca mostra uma só e a resposta vale para as duas
+    MF.canon = P.map((p) => p.i);
+    {
+      const groups = new Map();
+      for (const p of P) {
+        if (!p.st.length) continue;
+        const k = p.key + '|' + p.nat;
+        const g = groups.get(k);
+        if (!g) { groups.set(k, [p]); continue; }
+        g.push(p);
+      }
+      for (const g of groups.values()) {
+        if (g.length < 2 || !g.some((p) => p.alt)) continue; // só fichas que vieram com nome em outro alfabeto
+        const born = g.map((p) => p.born).filter(Boolean);
+        if (new Set(born).size > 1) continue; // homônimos de verdade
+        const main = g.slice().sort((a, b) => b.st.length - a.st.length || b.r - a.r)[0];
+        for (const p of g) MF.canon[p.i] = main.i;
+      }
+    }
     // títulos extras (Libertadores pelo clube/ano, Eurocopa pelos elencos campeões)
     const TR = MF.TROPHIES || {};
     for (const p of P) { p.lib = !!(TR.lib && TR.lib[p.i]); p.euro = !!(TR.euro && TR.euro[p.i]); }
@@ -245,6 +271,8 @@
     }
     return out; // Map(qi -> Set(clubes))
   };
+  /** mesmo jogador (considera fichas duplicadas da base) */
+  MF.same = (a, b) => a === b || (a != null && b != null && MF.canon && MF.canon[a] !== undefined && MF.canon[a] === MF.canon[b]);
   MF.playedFor = (pi, ci) => MF.data.P[pi].clubs.includes(ci);
 
   // ------------------------------------------------------------------ busca de jogadores
@@ -268,7 +296,14 @@
       if (s >= 0) res.push([s + e.score, e.i]);
     }
     res.sort((a, b) => b[0] - a[0]);
-    return res.slice(0, limit).map((r) => r[1]);
+    const seen = new Set(), out = [];
+    for (const [, i] of res) {
+      const c = MF.canon && MF.canon[i] !== undefined ? MF.canon[i] : i;
+      if (seen.has(c)) continue;
+      seen.add(c); out.push(i);
+      if (out.length >= limit) break;
+    }
+    return out;
   };
   /** resolve um texto digitado num jogador (exato), ou null */
   MF.resolvePlayer = (q) => {

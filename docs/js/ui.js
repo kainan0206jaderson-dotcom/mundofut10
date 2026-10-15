@@ -98,21 +98,21 @@
   MF.silhouette = (cls, name, hint) => {
     const s = h('span', { class: 'sil ' + (cls || ''), 'aria-hidden': 'true' });
     s.innerHTML = '<svg viewBox="0 0 100 110"><circle cx="50" cy="32" r="20"/><path d="M12 108 C14 74 30 60 50 60 C70 60 86 74 88 108 Z"/></svg>';
-    if (name && MF.media) MF.media.player(name, hint).then((url) => { if (url) MF.media.swapImg(s, url, name, 'sil-photo'); });
+    if (name && MF.media) MF.media.player(name, hint).then((url) => { if (url) MF.media.faceImg(s, url, name, 'sil-photo'); });
     return s;
   };
-  // avatar redondo de jogador (foto livre da Wikipedia; silhueta enquanto carrega ou se não houver foto)
+  // retrato 3x4 só do rosto (foto livre da Wikipedia; silhueta enquanto carrega ou se não houver foto)
   MF.photo = (name, hint, size) => {
     const s = h('span', { class: 'pph', style: { '--ph': (size || 32) + 'px' }, 'aria-hidden': 'true' });
     s.innerHTML = '<svg viewBox="0 0 100 100"><circle cx="50" cy="38" r="19"/><path d="M14 100 C16 72 31 60 50 60 C69 60 84 72 86 100 Z"/></svg>';
-    if (name && MF.media) MF.media.player(name, hint).then((url) => { if (url) MF.media.swapImg(s, url, '', 'pph-img'); });
+    if (name && MF.media) MF.media.player(name, hint).then((url) => { if (url) MF.media.faceImg(s, url, '', 'pph-img'); });
     return s;
   };
 
   // ------------------------------------------------------------------ imagens livres (Wikipedia / Wikimedia Commons)
   // Busca no navegador, 4 por vez, com cache no aparelho. Só imagens de licença livre (pilicense=free) e logos do Wikidata.
   (function () {
-    const V = 'mf10:img1:';
+    const V = 'mf10:img2:';
     const memo = new Map(), queue = [];
     let active = 0;
     const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -137,9 +137,9 @@
       player(name, hint) {
         if (!name || typeof fetch !== 'function') return Promise.resolve(null);
         return lookup('p', MF.norm(name + '|' + (hint || '')), async () => {
-          const pages = await search('en.wikipedia.org', name + ' footballer' + (hint ? ' ' + hint : ''), 240);
+          const pages = await search('en.wikipedia.org', name + ' footballer' + (hint ? ' ' + hint : ''), 400);
           let pg = pages.find((x) => matches(x.title, name));
-          if (!pg && hint) { const p2 = await search('en.wikipedia.org', name + ' footballer', 240); pg = p2.find((x) => matches(x.title, name)); }
+          if (!pg && hint) { const p2 = await search('en.wikipedia.org', name + ' footballer', 400); pg = p2.find((x) => matches(x.title, name)); }
           return pg && pg.thumbnail ? pg.thumbnail.source : null;
         });
       },
@@ -157,6 +157,41 @@
           }
           return null;
         });
+      },
+      // retrato 3x4 só do rosto: detecta o rosto quando o navegador permite (FaceDetector);
+      // senão recorta a parte de cima da foto (onde fica a cabeça nas fotos de perfil da Wikipedia).
+      // O recorte fechado esconde camisa e escudo do clube.
+      faceImg(el, url, alt, cls) {
+        const img = new Image();
+        img.decoding = 'async'; img.referrerPolicy = 'no-referrer'; img.crossOrigin = 'anonymous';
+        const place = (box) => {
+          const W = img.naturalWidth, H = img.naturalHeight;
+          if (!W || !H) return;
+          let cx, cy, ch;
+          if (box) { cx = box.x + box.width / 2; cy = box.y + box.height * 0.55; ch = box.height * 1.85; }
+          else if (W / H <= 0.95) { cx = W / 2; cy = H * 0.22; ch = Math.min(H * 0.42, W * 0.62 * 4 / 3); }
+          else { cx = W / 2; cy = H * 0.3; ch = H * 0.55; }
+          ch = Math.min(ch, H, W * 4 / 3); const cw = ch * 0.75;
+          const x = Math.max(0, Math.min(W - cw, cx - cw / 2)), y = Math.max(0, Math.min(H - ch, cy - ch / 2));
+          const d = document.createElement('span');
+          d.className = 'face ' + (cls || ''); d.setAttribute('role', 'img'); if (alt) d.setAttribute('aria-label', alt);
+          d.style.backgroundImage = 'url("' + url.replace(/"/g, '%22') + '")';
+          d.style.backgroundSize = (W / cw * 100) + '% ' + (H / ch * 100) + '%';
+          d.style.backgroundPosition = (W - cw > 0 ? x / (W - cw) * 100 : 50) + '% ' + (H - ch > 0 ? y / (H - ch) * 100 : 0) + '%';
+          MF.clear(el); el.appendChild(d); el.classList.add('has-img');
+        };
+        img.onload = () => {
+          if (typeof window.FaceDetector === 'function') {
+            try {
+              new window.FaceDetector({ maxDetectedFaces: 1, fastMode: true }).detect(img)
+                .then((f) => place(f && f[0] ? f[0].boundingBox : null), () => place(null));
+              return;
+            } catch (e) {}
+          }
+          place(null);
+        };
+        img.onerror = () => { if (img.crossOrigin) { img.crossOrigin = null; img.removeAttribute('crossorigin'); img.src = url + (url.includes('?') ? '&' : '?') + 'nc=1'; } };
+        img.src = url;
       },
       // troca o conteúdo pelo <img> só depois que a imagem carregou (sem piscar nem quebrar)
       swapImg(el, url, alt, cls) {

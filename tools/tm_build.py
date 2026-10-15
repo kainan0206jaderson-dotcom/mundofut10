@@ -23,6 +23,7 @@ if 'tm' in OLD.get('v', ''):
     OLD = json.load(open(LEG_PATH))
 else:
     json.dump(OLD, open(LEG_PATH, 'w'), ensure_ascii=False)
+WC2026_EXTRA = {'Pubill', 'Alejandro Grimaldo', 'Eric García', 'Joan García', 'Yéremy Pino', 'Álex Baena', 'Víctor Muñoz'}
 DRAFT = json.load(open(os.path.join(ROOT, 'tools', 'legacy_draft.json')))  # elencos 2026/27 (EA FC 27 + Wikipedia): só o clube atual
 for _f in ('games', 'trophies'):
     _p = os.path.join(ROOT, 'tools', 'legacy_' + _f + '.json')
@@ -415,6 +416,8 @@ def main():
         if q.get('oldr'): sig.append(q['oldr'])
         if q.get('draft_r'): sig.append(q['draft_r'] - 1)
         r = max(sig)
+        # campeões da Copa de 2026 (Espanha) que a base curada antiga não marcava
+        if q['nat'] == 'Spain' and q['n'] in WC2026_EXTRA: q['flags'] |= 16
         if q['flags'] & 4: r += 2
         if q['flags'] & 8: r += 3
         q['r'] = int(round(min(99, r)))

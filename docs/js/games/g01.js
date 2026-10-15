@@ -84,7 +84,7 @@
         if (ctx.finished()) return;
         if (guessIdx == null && st.rev >= open.length) return;
         if (guessIdx != null && st.guesses.includes(guessIdx)) return MF.toast(t('already'));
-        if (guessIdx === pi) {
+        if (MF.same(guessIdx, pi)) {
           st.guesses.push(guessIdx);
           ctx.save();
           return end(true);
@@ -97,7 +97,7 @@
         paint(true);
       }
       function end(win) {
-        const line = st.guesses.map((g) => (g === pi ? '🟩' : g === null ? '⬜' : '🟥')).join('') + ' · ' + misses() + '/' + MAX + ' ' + t('missesWord');
+        const line = st.guesses.map((g) => (MF.same(g, pi) ? '🟩' : g === null ? '⬜' : '🟥')).join('') + ' · ' + misses() + '/' + MAX + ' ' + t('missesWord');
         st.scoreLabel = target.n + ' · ' + season;
         ctx.finish(win, win ? MAX - misses() : 0, line, { type: 'player', pi });
         paint(false);
