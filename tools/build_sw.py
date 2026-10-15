@@ -3,7 +3,7 @@ import hashlib, json, os
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', 'docs')
 files = ['./', 'index.html']
-for d in ('crests', 'icons', 'js', 'js/games'):
+for d in ('crests', 'icons', 'img/tex', 'js', 'js/games'):
     files += sorted(f'{d}/{f}' for f in os.listdir(os.path.join(ROOT, d)) if os.path.isfile(os.path.join(ROOT, d, f)))
 # ext.json (8 MB, base completa) entra no cache só quando é usado
 files += [f'data/{f}' for f in ('crests.json', 'db.json', 'flags.json', 'games.json', 'trophies.json')]

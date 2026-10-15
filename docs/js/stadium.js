@@ -17,6 +17,20 @@
   const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
   const easeOutBack = (x) => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
 
+  // texturas pesadas já prontas em WebP (geradas por tools/bake_textures.py a partir das funções abaixo);
+  // começam a baixar e decodificar junto com a base de dados, então a abertura não gasta CPU desenhando-as
+  const BAKED = {};
+  if (!/[?&]nobake\b/.test(location.search)) {
+    for (const k of ['puff1', 'puff2', 'puff3', 'puff4', 'pitch']) {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = 'img/tex/' + k + '.webp?v=1';
+      BAKED[k] = { img, ok: false };
+      (img.decode ? img.decode() : new Promise((r, j) => { img.onload = r; img.onerror = j; })).then(() => (BAKED[k].ok = true), () => {});
+    }
+  }
+  const baked = (k) => (BAKED[k] && BAKED[k].ok && BAKED[k].img.naturalWidth ? BAKED[k].img : null);
+
   S.supported = () => {
     if (!window.THREE) return false;
     try { const c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; }
@@ -122,6 +136,10 @@
   // ------------------------------------------------------------------ texturas desenhadas em canvas
   // nuvem cúmulo sombreada: topo iluminado, base azulada, contorno em couve-flor
   function puffTexture(T, seed) {
+    const img = baked('puff' + seed);
+    return new T.CanvasTexture(img || puffCanvas(seed));
+  }
+  function puffCanvas(seed) {
     // cúmulo mais natural: muitas bolhas pequenas e macias (base reta, topo em couve-flor), bordas desfiadas, sombra azulada embaixo
     const W = 512, H = 320;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -162,8 +180,7 @@
     const hl = g.createRadialGradient(W * 0.42, H * 0.15, 4, W * 0.42, H * 0.2, W * 0.45);
     hl.addColorStop(0, 'rgba(255,250,236,.45)'); hl.addColorStop(1, 'rgba(255,250,236,0)');
     g.fillStyle = hl; g.fillRect(0, 0, W, H);
-    const tx = new T.CanvasTexture(c);
-    return tx;
+    return c;
   }
   function glowTexture(T, inner, outer) {
     const c = document.createElement('canvas'); c.width = c.height = 128;
@@ -174,9 +191,27 @@
     return new T.CanvasTexture(c);
   }
   // gramado elíptico inteiro (campo + área de escape até o muro da arquibancada), 10 px por metro
+  const PK = 10, PW = SA * 2 * PK, PH = SB * 2 * PK;
   function pitchTexture(T, maxAniso) {
-    const K = 10, W = SA * 2 * K, H = SB * 2 * K;
-    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const c = document.createElement('canvas'); c.width = PW; c.height = PH;
+    const img = baked('pitch');
+    if (img) c.getContext('2d').drawImage(img, 0, 0, PW, PH); else pitchBase(c);
+    pitchText(c);
+    const tx = new T.CanvasTexture(c);
+    tx.anisotropy = Math.min(maxAniso || 4, 8);
+    return tx;
+  }
+  // pinta "MUNDOFUT10" atrás dos gols (refeito só se a fonte chegar depois)
+  function pitchText(c) {
+    const g = c.getContext('2d'), K = PK;
+    const P = (x, z) => [(x + SA) * K, (z + SB) * K];
+    for (const [z, rot] of [[55.6, 0], [-55.6, Math.PI]]) {
+      g.save(); g.font = `900 ${3.4 * K}px "Big Shoulders Display", Impact, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,212,0,.16)';
+      g.translate(...P(0, z)); if (rot) g.rotate(rot); g.fillText('MUNDOFUT10', 0, 0); g.restore();
+    }
+  }
+  function pitchBase(c) {
+    const K = PK, W = PW, H = PH;
     const g = c.getContext('2d');
     const P = (x, z) => [(x + SA) * K, (z + SB) * K];
     g.fillStyle = '#163418'; g.fillRect(0, 0, W, H);
@@ -226,15 +261,13 @@
     g.setLineDash([0.9 * K, 0.7 * K]); g.lineWidth = 2;
     rect(-39, -15, -35, -3.5); rect(-39, 3.5, -35, 15);
     g.setLineDash([]);
-    // grama "pintada" atrás dos gols
-    g.save(); g.font = `900 ${3.4 * K}px "Big Shoulders Display", Impact, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,212,0,.16)';
-    g.translate(...P(0, 55.6)); g.fillText('MUNDOFUT10', 0, 0); g.restore();
-    g.save(); g.font = `900 ${3.4 * K}px "Big Shoulders Display", Impact, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,212,0,.16)';
-    g.translate(...P(0, -55.6)); g.rotate(Math.PI); g.fillText('MUNDOFUT10', 0, 0); g.restore();
-    const tx = new T.CanvasTexture(c);
-    tx.anisotropy = maxAniso || 4;
-    return tx;
+    return c;
   }
+  // usado só por tools/bake_textures.py
+  S._bake = () => {
+    const pc = document.createElement('canvas'); pc.width = PW; pc.height = PH;
+    return { puff1: puffCanvas(1), puff2: puffCanvas(2), puff3: puffCanvas(3), puff4: puffCanvas(4), pitch: pitchBase(pc) };
+  };
   // fachada: nervuras verticais de concreto, dois pisos de janelas e faixa amarela no topo
   function facadeTextures(T) {
     const mk = () => { const c = document.createElement('canvas'); c.width = 256; c.height = 256; return [c, c.getContext('2d')]; };
@@ -349,10 +382,12 @@
     }`;
   const SEA_VS = CLOUD_GLSL + `
     uniform vec2 uStad;
-    varying vec3 vW;
+    varying vec3 vW; varying vec3 vN;
     void main(){
       vec4 w = modelMatrix * vec4(position, 1.0);
       float h = cloudH(w.xz);
+      float hx = cloudH(w.xz + vec2(5.0, 0.0)), hz = cloudH(w.xz + vec2(0.0, 5.0));
+      vN = vec3(-(hx - h) * 7.0, 1.0, -(hz - h) * 7.0);
       float e = length(w.xz / uStad);
       float hug = 13.0 * exp(-pow((e - 1.08) / 0.32, 2.0));        // nuvens sobem e abraçam a base
       w.y += h * 28.0 + hug - 4.0 * smoothstep(0.9, 0.0, e);
@@ -362,13 +397,11 @@
   const SEA_FS = CLOUD_GLSL + `
     uniform vec3 uLit; uniform vec3 uShade; uniform vec3 uDeep; uniform vec3 uHorizon; uniform vec3 uSun; uniform vec3 uGlow;
     uniform float uFogD; uniform float uGlowAmt; uniform float uSilver; uniform float uShadowAmt; uniform vec2 uStad;
-    varying vec3 vW;
+    varying vec3 vW; varying vec3 vN;
     void main(){
       vec2 q = vW.xz;
       float h = cloudH(q);
-      float ex = 5.0;
-      float hx = cloudH(q + vec2(ex, 0.0)), hz = cloudH(q + vec2(0.0, ex));
-      vec3 N = normalize(vec3(-(hx - h) * 7.0, 1.0, -(hz - h) * 7.0));
+      vec3 N = normalize(vN);
       vec3 L = normalize(vec3(uSun.x, max(uSun.y, 0.12), uSun.z));
       float lam = clamp(dot(N, L) * 0.85 + 0.15, 0.0, 1.0);
       vec3 col = mix(uShade, uLit, clamp(lam * 0.78 + h * 0.32, 0.0, 1.0));
@@ -432,7 +465,10 @@
     try {
       renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     } catch (e) { return false; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.6 : 1.8));
+    // resolução interna: começa no teto do aparelho e o loop ajusta sozinho (S.quality)
+    const dpr = window.devicePixelRatio || 1, qMax = Math.min(dpr, mobile ? 1.5 : 1.75);
+    S.q = { max: qMax, cur: qMax, min: Math.min(qMax, mobile ? 0.8 : 0.9), acc: 0, n: 0, hold: 0, ups: 0, low: false };
+    renderer.setPixelRatio(qMax);
     renderer.setClearColor(0x060708);
     const scene = new T.Scene();
     const FOG = new T.Color(0x0a0e18);
@@ -675,7 +711,29 @@
     addEventListener('pointermove', (e) => { S.pointer.x = (e.clientX / innerWidth) * 2 - 1; S.pointer.y = (e.clientY / innerHeight) * 2 - 1; });
     addEventListener('resize', () => S.resize());
     document.addEventListener('visibilitychange', () => { if (document.hidden) S.stop(); else if (S.mounted) S.start(); });
+    S._fontsOk = fontsReady();
+    S.warm();
     return true;
+  };
+  const fontsReady = () => { try { return !document.fonts || document.fonts.check('900 34px "Big Shoulders Display"'); } catch (e) { return true; } };
+  // aquecimento: compila todos os shaders e envia todas as texturas à GPU antes do primeiro quadro,
+  // em vez de engasgar no meio do voo quando cada objeto aparece pela primeira vez
+  S.warm = () => {
+    const { renderer, scene, camera } = S;
+    try {
+      camera.updateMatrixWorld();
+      renderer.compile(scene, camera);
+      const seen = new Set();
+      const up = (t) => { if (t && t.isTexture && !seen.has(t)) { seen.add(t); renderer.initTexture(t); } };
+      scene.traverse((o) => {
+        const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+        for (const m of ms) {
+          up(m.map); up(m.emissiveMap);
+          if (m.uniforms) for (const k in m.uniforms) up(m.uniforms[k] && m.uniforms[k].value);
+        }
+      });
+    } catch (e) { /* aquecimento é só otimização */ }
+    S.q && (S.q.hold = performance.now() + 700);
   };
 
   // ------------------------------------------------------------------ dia e noite pelo horário de Brasília
@@ -782,12 +840,17 @@
     // ao trocar de jogadores, a sombra antiga sai junto
     S._shadows && S._shadows.forEach((s) => scene.remove(s));
     S._shadows = S.jerseys.map((j) => j.shadow);
+    S.warm();
   };
 
   S.refreshTextures = () => {
-    if (S._leds) { drawLed(S._leds[0].image); S._leds.forEach((t) => (t.needsUpdate = true)); }
-    if (S._pitch && S._pitch.map && !S._pitchRedrawn) { S._pitchRedrawn = true; const nt = pitchTexture(S.T, S.renderer.capabilities.getMaxAnisotropy()); S._pitch.map.dispose(); S._pitch.map = nt; S._pitch.needsUpdate = true; }
-    for (const j of S.jerseys) { const tx = j.mat.uniforms.map.value; tx.image = shirtCanvas(j.num, j.status); tx.needsUpdate = true; }
+    if (!S.ok || S._fontsOk) return;
+    S._fontsOk = true;
+    const jobs = (S._jobs = S._jobs || []);
+    if (S._leds) jobs.push(() => { drawLed(S._leds[0].image); S._leds.forEach((t) => (t.needsUpdate = true)); });
+    if (S._pitch && S._pitch.map) jobs.push(() => { const nt = pitchTexture(S.T, S.renderer.capabilities.getMaxAnisotropy()); S.renderer.initTexture(nt); const old = S._pitch.map; S._pitch.map = nt; old.dispose(); });
+    for (const j of S.jerseys) jobs.push(() => { const tx = j.mat.uniforms.map.value; tx.image = shirtCanvas(j.num, j.status); tx.needsUpdate = true; });
+    if (!S.running) while (jobs.length) jobs.shift()();
   };
 
   // ------------------------------------------------------------------ enquadramento responsivo da pose final
@@ -856,44 +919,86 @@
     S.computeFitRect = computeFitRect;
     host.insertBefore(S.renderer.domElement, host.firstChild);
     S.mounted = true;
+    S.offscreen = false;
+    if (S._io) S._io.disconnect();
+    if ('IntersectionObserver' in window) {
+      S._io = new IntersectionObserver(([en]) => {
+        S.offscreen = !en.isIntersecting;
+        if (S.offscreen) S.stop(); else if (S.mounted && !document.hidden) S.start();
+      });
+      S._io.observe(host);
+    }
     S.resize();
     S.start();
   };
-  S.unmount = () => { S.mounted = false; S.stop(); };
+  S.unmount = () => { S.mounted = false; S.stop(); if (S._io) { S._io.disconnect(); S._io = null; } S.offscreen = false; };
 
   S.playIntro = (onReveal, onEnd) => {
     const { T } = S;
     const P = S.pose.pos, G = S.pose.target;
     // descida direta: a câmera mira sempre o centro do estádio e só inclina até o ângulo da escalação
     const endDir = P.clone().sub(G);
-    S.introPath = { G: G.clone(), dEnd: endDir.length(), dStart: 1500, endDir: endDir.normalize(), startDir: new T.Vector3(0, 1, 0.12).normalize() };
-    S.intro = { t0: performance.now(), dur: S.mobile ? 7600 : 8400, onReveal, onEnd, revealed: false, skip: null };
+    S.introPath = { G: G.clone(), dEnd: endDir.length(), dStart: 1500, endDir: endDir.normalize(), startDir: new T.Vector3(0, 1, 0.12).normalize(), dir: new T.Vector3() };
+    // relógio próprio do voo (soma de quadros, não o relógio da parede): um engasgo do navegador não vira salto na câmera
+    S.intro = { el: 0, dur: S.mobile ? 7600 : 8400, onReveal, onEnd, revealed: false, skip: null };
     S.introDone = false;
     S.start();
   };
-  S.skipIntro = () => { if (S.intro && !S.intro.skip) S.intro.skip = performance.now(); };
+  S.skipIntro = () => { if (S.intro && S.intro.skip == null) S.intro.skip = S.intro.el; };
   S.showHome = () => { S.intro = null; S.introDone = true; S.jerseys.forEach((j) => (j.enter = 1)); S.start(); };
 
+  // ------------------------------------------------------------------ qualidade adaptável
+  // mede o tempo real dos quadros e ajusta a resolução interna (pixel ratio) para manter a animação lisa;
+  // no limite mais baixo também desliga os desfoques de fundo (backdrop-filter) por cima do canvas
+  S.quality = (now, raw) => {
+    const q = S.q;
+    if (!q || raw > 250) return;          // aba voltando do segundo plano: ignora
+    if (now < q.hold) return;             // período de aquecimento / depois de uma troca
+    q.acc += raw; q.n++;
+    if (q.n < 24) return;
+    const avg = q.acc / q.n; q.acc = 0; q.n = 0;
+    let next = q.cur;
+    if (avg > 20.5 && q.cur > q.min) next = Math.max(q.min, q.cur - (avg > 30 ? 0.3 : 0.15));
+    else if (avg < 12.5 && q.cur < q.max && q.ups < 3) { next = Math.min(q.max, q.cur + 0.1); q.ups++; }
+    if (avg > 24 && q.cur <= q.min + 0.01 && !q.low) { q.low = true; document.body.classList.add('lowfx'); }
+    if (Math.abs(next - q.cur) > 0.001) {
+      q.cur = next;
+      S.renderer.setPixelRatio(next);
+      S.renderer.setSize(S.W, S.H, false);
+      q.hold = now + 900;
+    }
+  };
+
   // ------------------------------------------------------------------ loop
-  S.start = () => { if (S.running || !S.ok) return; S.running = true; S.last = performance.now(); requestAnimationFrame(S.frame); };
+  S.start = () => {
+    if (S.running || !S.ok || S.offscreen) return;
+    S.running = true; S.last = performance.now(); requestAnimationFrame(S.frame);
+  };
   S.stop = () => { S.running = false; };
+  const _v = { a: null };
+  const setStyle = (el, key, val) => { const c = el._mf || (el._mf = {}); if (c[key] !== val) { c[key] = val; if (key === '--sz') el.style.setProperty('--sz', val); else el.style[key] = val; } };
   S.frame = (now) => {
     if (!S.running) return;
     requestAnimationFrame(S.frame);
-    const dt = Math.min(0.05, (now - S.last) / 1000); S.last = now;
+    const raw = now - S.last; S.last = now;
+    const dt = Math.min(0.05, Math.max(0, raw) / 1000);
+    S.quality(now, raw);
+    // trabalho de texturas adiado (fonte que chegou depois): uma por quadro, nunca tudo de uma vez
+    if (S._jobs && S._jobs.length) S._jobs.shift()();
     S.uTime.value += dt;
     const { camera, T } = S;
     let k = 1, fog = 0;
     if (S.intro) {
       const I = S.intro;
-      let p = S.debugP != null ? S.debugP : (now - I.t0) / I.dur;
-      if (I.skip) { I.skipFrom = I.skipFrom ?? p; p = I.skipFrom + (1 - I.skipFrom) * clamp((now - I.skip) / 900, 0, 1); }
+      I.el += Math.min(100, Math.max(0, raw));   // até 10 qps o voo dura o mesmo; engasgos maiores não pulam a câmera
+      let p = S.debugP != null ? S.debugP : I.el / I.dur;
+      if (I.skip != null) { I.skipFrom = I.skipFrom ?? p; p = I.skipFrom + (1 - I.skipFrom) * clamp((I.el - I.skip) / 900, 0, 1); }
       p = clamp(p, 0, 1);
       const e = easeInOut(p);
       const ip = S.introPath;
       const dist = ip.dEnd * Math.pow(ip.dStart / ip.dEnd, 1 - e); // aproximação contínua (zoom constante)
       const tilt = clamp((e - 0.45) / 0.55, 0, 1); // inclina só na reta final
-      const dir = ip.startDir.clone().lerp(ip.endDir, tilt * tilt * (3 - 2 * tilt)).normalize();
+      const dir = ip.dir.copy(ip.startDir).lerp(ip.endDir, tilt * tilt * (3 - 2 * tilt)).normalize();
       camera.position.copy(ip.G).addScaledVector(dir, dist);
       camera.up.set(0, 1, 0);
       camera.lookAt(ip.G);
@@ -901,16 +1006,16 @@
       // jogadores sobem no gramado quando a câmera chega
       S.jerseys.forEach((j, i) => { j.enter = clamp((p - 0.74 - i * 0.012) / 0.16, 0, 1); });
       if (p > 0.8 && !I.revealed) { I.revealed = true; I.onReveal && I.onReveal(); }
-      if (p >= 1) { S.intro = null; S.introDone = true; camera.up.set(0, 1, 0); I.onEnd && I.onEnd(); }
+      if (p >= 1) { S.intro = null; S.introDone = true; camera.up.set(0, 1, 0); I.onEnd && I.onEnd(); MF.introEnded && MF.introEnded(); }
       // névoa de nuvem na tela
       for (const c of S.clouds) {
         const dd = c.position.distanceTo(camera.position) / c.userData.size;
         if (dd < 0.45) fog = Math.max(fog, ((0.45 - dd) / 0.45) * c.userData.base * 0.8);
       }
     } else {
-      // tela inicial: leve paralaxe com o mouse (sensação de 3D)
-      const pt = S.pointer;
-      pt.sx += (pt.x - pt.sx) * 0.04; pt.sy += (pt.y - pt.sy) * 0.04;
+      // tela inicial: leve paralaxe com o mouse (sensação de 3D), suavizada pelo tempo do quadro
+      const pt = S.pointer, a = 1 - Math.pow(0.96, dt * 60);
+      pt.sx += (pt.x - pt.sx) * a; pt.sy += (pt.y - pt.sy) * a;
       const drift = Math.sin(now / 5200) * 0.6;
       camera.position.set(S.pose.pos.x + pt.sx * 3.2 + drift, S.pose.pos.y - pt.sy * 1.6, S.pose.pos.z);
       camera.up.set(0, 1, 0);
@@ -918,19 +1023,26 @@
     }
     S.applyOffset(k);
     S.halo.material.opacity = clamp((camera.position.length() - 380) / 500, 0, 1) * (S.night ?? 1);
-    // nuvens somem perto da câmera
-    for (const c of S.clouds) {
-      const d = c.position.distanceTo(camera.position);
-      c.material.opacity = c.userData.base * clamp((d - c.userData.size * 0.12) / (c.userData.size * 0.55), 0, 1);
-      c.position.x += c.userData.drift * dt;
+    // nuvens somem perto da câmera (as altas só importam durante o voo)
+    const flying = !!S.intro || !S._cloudsSettled;
+    if (flying) {
+      for (const c of S.clouds) {
+        const d = c.position.distanceTo(camera.position);
+        c.material.opacity = c.userData.base * clamp((d - c.userData.size * 0.12) / (c.userData.size * 0.55), 0, 1);
+        c.position.x += c.userData.drift * dt;
+      }
+      if (!S.intro) S._cloudsSettled = true;
     }
     for (const p of S.puffs) p.position.y = p.userData.y + Math.sin(S.uTime.value * 0.4 + p.userData.ph) * 0.8;
-    if (S.fogEl) S.fogEl.style.opacity = String(fog);
+    if (S.fogEl) setStyle(S.fogEl, 'opacity', fog > 0.002 ? fog.toFixed(3) : '0');
     // camisas: entrada com mola, flutuação, rotação para a câmera, tecido ao passar o mouse
-    const tt = S.uTime.value;
+    const tt = S.uTime.value, ease = 1 - Math.pow(0.88, dt * 60);
     for (const j of S.jerseys) {
-      j.hover += (j.hoverT - j.hover) * 0.12;
+      j.hover += (j.hoverT - j.hover) * ease;
       const e = easeOutBack(j.enter);
+      const vis = j.enter > 0;
+      j.group.visible = vis; j.shadow.visible = vis;
+      if (!vis) continue;
       const yaw = Math.atan2(camera.position.x - j.base.x, camera.position.z - j.base.z);
       j.group.position.set(j.base.x, 6 * e + 0.5 * Math.sin(tt * 1.3 + j.num) + j.hover * 2, j.base.z);
       j.group.rotation.set(-0.12 - j.hover * 0.06, yaw + 0.16 * Math.sin(tt * 0.7 + j.num * 0.8) * (1 - j.hover), 0.04 * Math.sin(tt * 0.9 + j.num));
@@ -942,18 +1054,20 @@
       j.shadow.scale.set(sh, sh, sh);
     }
     S.renderer.render(S.scene, camera);
-    // posiciona os links (DOM) sobre as camisas
+    // posiciona os links (DOM) sobre as camisas — só escreve no DOM o que mudou
     if (S.layer) {
-      const v = new T.Vector3();
+      const v = _v.a || (_v.a = new T.Vector3());
       for (const j of S.jerseys) {
+        const op = clamp(j.enter * 1.4 - 0.4, 0, 1);
+        setStyle(j.el, 'opacity', op ? op.toFixed(3) : '0');
+        if (!op) continue;
         v.set(j.base.x, j.group.position.y, j.base.z).project(camera);
         const x = (v.x * 0.5 + 0.5) * S.W, y = (-v.y * 0.5 + 0.5) * S.H;
         v.set(j.base.x, j.group.position.y + 5.3 * j.group.scale.y, j.base.z).project(camera);
         const top = (-v.y * 0.5 + 0.5) * S.H;
         const hgt = Math.max(24, (y - top) * 2);
-        j.el.style.transform = `translate(${x.toFixed(1)}px, ${(y - hgt / 2).toFixed(1)}px)`;
-        j.el.style.setProperty('--sz', hgt.toFixed(1) + 'px');
-        j.el.style.opacity = String(clamp(j.enter * 1.4 - 0.4, 0, 1));
+        setStyle(j.el, 'transform', `translate3d(${x.toFixed(1)}px, ${(y - hgt / 2).toFixed(1)}px, 0)`);
+        setStyle(j.el, '--sz', (Math.round(hgt * 2) / 2) + 'px');
       }
     }
   };

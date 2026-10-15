@@ -21,6 +21,9 @@
 <meta name="description" content="Onze desafios diários de futebol: craques, Bola de Ouro, cartas do FIFA, grid, pirâmide e futebol brasileiro.">
 <meta name="theme-color" content="#0d0c09">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preload" as="image" href="img/tex/puff1.webp?v=1"><link rel="preload" as="image" href="img/tex/puff2.webp?v=1">
+<link rel="preload" as="image" href="img/tex/puff3.webp?v=1"><link rel="preload" as="image" href="img/tex/puff4.webp?v=1">
+<link rel="preload" as="image" href="img/tex/pitch.webp?v=1">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
 <style>
@@ -737,7 +740,7 @@ button.fdc.off, button.fdc:disabled { filter: grayscale(1) brightness(.55); curs
 .pv-draft.br b { background: var(--ok); }
 
 /* ---------- tela inicial 3D (estádio vivo) ---------- */
-.cam-skip { position: absolute; z-index: 6; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); padding: 10px 18px; border-radius: 999px; border: 1px solid rgba(244,236,210,.35); background: rgba(13,12,9,.55); color: var(--paper); font-weight: 600; cursor: pointer; backdrop-filter: blur(6px); }
+.cam-skip { position: absolute; z-index: 6; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); padding: 10px 18px; border-radius: 999px; border: 1px solid rgba(244,236,210,.35); background: rgba(13,12,9,.68); color: var(--paper); font-weight: 600; cursor: pointer; }
 
 body.is-home3d .top { position: fixed; left: 0; right: 0; background: linear-gradient(180deg, rgba(5,6,8,.82), rgba(5,6,8,0)); border-bottom: 0; backdrop-filter: none; transition: opacity .7s var(--ease), transform .7s var(--ease); }
 body.intro-on .top { opacity: 0; transform: translateY(-16px); pointer-events: none; }
@@ -768,9 +771,9 @@ body.intro-on .top { opacity: 0; transform: translateY(-16px); pointer-events: n
 .stage-ui .meta { margin-top: 2px; }
 .home-intro .meta { margin-top: 6px; }
 .ui-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
-.stage-ui .progress { width: 250px; margin-top: 0; background: rgba(13,12,9,.6); backdrop-filter: blur(8px); }
+.stage-ui .progress { width: 250px; margin-top: 0; background: rgba(13,12,9,.74); }
 .sheet-panel { position: absolute; z-index: 4; top: calc(78px + env(safe-area-inset-top, 0px)); right: var(--gutter); bottom: 26px; width: min(384px, 29vw); overflow: auto; overscroll-behavior: contain;
-  padding: 14px; border-radius: 18px; background: rgba(12,12,10,.6); border: 1px solid rgba(255,255,255,.09); backdrop-filter: blur(16px) saturate(1.2); box-shadow: 0 30px 60px rgba(0,0,0,.45); }
+  padding: 14px; border-radius: 18px; background: rgba(12,12,10,.66); border: 1px solid rgba(255,255,255,.09); backdrop-filter: blur(10px) saturate(1.2); box-shadow: 0 30px 60px rgba(0,0,0,.45); }
 .panel-title { font-size: 24px; margin: 2px 4px 12px; }
 .sheet-panel .sheet-row { background: rgba(25,23,16,.72); }
 .sheet-panel .sheet-name { font-size: 19px; }
@@ -781,7 +784,10 @@ body.intro-on .top { opacity: 0; transform: translateY(-16px); pointer-events: n
 .ui-in .sheet-panel { animation: panelIn 1s var(--ease) .15s both; }
 .ui-in .sheet li { animation: rowIn .7s var(--ease) both; animation-delay: calc(var(--i) * 45ms + .3s); }
 .no-anim .stage-ui > *, .no-anim .sheet-panel, .no-anim .sheet li { animation: none; }
-@keyframes uiIn { from { opacity: 0; transform: translateY(22px); filter: blur(6px); } }
+@keyframes uiIn { from { opacity: 0; transform: translateY(22px); } }
+/* aparelho no limite (qualidade adaptável no mínimo): sem desfoque de fundo sobre o 3D */
+body.lowfx .sheet-panel { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(12,12,10,.9); }
+body.lowfx.is-home3d .top.scrolled { backdrop-filter: none; -webkit-backdrop-filter: none; }
 @keyframes panelIn { from { opacity: 0; transform: perspective(1200px) translateX(40px) rotateY(-14deg); } }
 @keyframes rowIn { from { opacity: 0; transform: perspective(900px) translateX(26px) rotateY(-24deg); } }
 /* telas largas: título numa coluna à esquerda, campo no centro, escalação à direita */

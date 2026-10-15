@@ -209,7 +209,7 @@
     MF.data = { P, clubs, leagues: db.leagues, byClub, games, flags };
     MF.buildSearch();
     // base estendida (todos os demais jogadores do Transfermarkt): baixa depois, sem travar a abertura
-    setTimeout(() => MF.loadExt(), 1500);
+    MF.whenCalm(() => MF.loadExt());
     return MF.data;
   };
   MF._player = (r, i, ext) => ext
@@ -232,22 +232,43 @@
   // passagem com datas confiáveis (sem início/fim aproximado)
   MF.exact = (s) => !((s[3] || 0) & 3);
   MF.extReady = false;
+  // trabalho pesado que não é urgente: espera o voo de abertura acabar e o navegador ficar ocioso
+  MF.whenCalm = (f) => {
+    const go = () => (window.requestIdleCallback ? requestIdleCallback(() => f(), { timeout: 4000 }) : setTimeout(f, 300));
+    const chk = () => (MF.Stadium && MF.Stadium.intro ? setTimeout(chk, 400) : go());
+    setTimeout(chk, 1200);
+  };
+  // processa em fatias de ~8 ms para não travar animações; publica tudo de uma vez no final
+  const sliced = (n, step, done) => new Promise((res) => {
+    let i = 0;
+    const run = () => {
+      const t0 = performance.now();
+      while (i < n && performance.now() - t0 < 8) { const e = Math.min(n, i + 200); for (; i < e; i++) step(i); }
+      if (i < n) setTimeout(run, 0); else { done(); res(); }
+    };
+    run();
+  });
   MF.loadExt = () => {
     if (MF._extP) return MF._extP;
     MF._extP = fetch('data/ext.json').then((r) => (r.ok ? r.json() : null)).then((x) => {
       if (!x || !MF.data) return;
       const { P, clubs } = MF.data;
       const base = P.length;
-      MF.data.byClubAll = MF.data.byClub.map((a) => a.slice());
-      x.players.forEach((r, k) => {
-        const p = MF._player(r, base + k, true);
+      const byClubAll = MF.data.byClub.map((a) => a.slice());
+      const add = [], srch = [];
+      return sliced(x.players.length, (k) => {
+        const p = MF._player(x.players[k], base + k, true);
         MF._derive(p, clubs);
-        P.push(p);
-        for (const c of p.clubs) (MF.data.byClubAll[c] = MF.data.byClubAll[c] || []).push(p.i);
-        MF._search.push(MF._searchEntry(p));
+        add.push(p);
+        for (const c of p.clubs) (byClubAll[c] = byClubAll[c] || []).push(p.i);
+        srch.push(MF._searchEntry(p));
+      }, () => {
+        for (const p of add) P.push(p);
+        for (const e of srch) MF._search.push(e);
+        MF.data.byClubAll = byClubAll;
+        MF.extReady = true;
+        (MF._extCbs || []).forEach((f) => f());
       });
-      MF.extReady = true;
-      (MF._extCbs || []).forEach((f) => f());
     }).catch(() => { MF._extP = null; });
     return MF._extP;
   };

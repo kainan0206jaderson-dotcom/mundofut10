@@ -445,6 +445,8 @@ clockLine()),
     root.appendChild(h('p', { class: 'loading' }, t('loading')));
     try {
       await MF.loadData();
+      // espera a fonte do título (no máximo 0,6 s) para o estádio não ter de redesenhar texturas no meio do voo
+      if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('900 34px "Big Shoulders Display"').catch(() => {}), new Promise((r) => setTimeout(r, 600))]);
     } catch (e) {
       root.innerHTML = '';
       root.appendChild(h('p', { class: 'loading err' }, t('loadError')));
