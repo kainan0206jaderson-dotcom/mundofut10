@@ -207,6 +207,23 @@ input, textarea { caret-color: var(--yellow); }
 .all-levels { margin: 0; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface); border-left: 3px solid var(--ok); }
 .result-foot .btn-primary { justify-self: start; }
 .pyr-help:not(:disabled) { border-color: var(--yellow); color: var(--yellow); }
+/* ajuda única (15/10/2026) */
+.help-btn:not(:disabled) { border-color: var(--yellow); color: var(--yellow); }
+.help-note { margin: 6px 0 0; padding: 8px 12px; border-radius: var(--r-md); background: var(--surface); border-left: 3px solid var(--yellow); color: var(--paper); font-size: 14px; }
+.help-note[hidden] { display: none; }
+.help-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.bg-cell.help-hit:not(.on) { border: 2px dashed var(--ok); box-shadow: 0 0 0 3px rgba(61,220,138,.18); }
+.g-cell.help-hit { border: 2px dashed var(--ok); }
+.g-hint { font-family: var(--f-num); font-weight: 800; letter-spacing: .08em; color: var(--ok); font-size: 13px; }
+.imp-p.imp-shown { background: transparent; color: var(--bad); border-color: var(--bad); border-style: dashed; text-decoration: line-through; opacity: .8; }
+.bo-mask { color: var(--mute); font-family: var(--f-num); letter-spacing: .1em; }
+.pyr-src { margin: -4px 0 10px; font-size: 12px; color: var(--mute); }
+@media (max-width: 560px) {
+  .ac:has(.help-btn) { flex-wrap: wrap; }
+  .ac:has(.help-btn) .ac-input { flex: 1 1 100%; }
+  .ac:has(.help-btn) > .btn { flex: 1 1 auto; }
+  .ac:has(.help-btn) .ac-list { top: 58px; }
+}
 .fd-round { display: grid; gap: 10px; }
 .fd-club { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--yellow); }
 .fd-club > div { display: grid; gap: 2px; min-width: 0; }
@@ -877,6 +894,7 @@ button, .btn, .sheet-row, .j3d, .icon-btn, .lang-switch button, .seg button, .sl
 <script src="js/core.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/levels.js"></script>
 <script src="js/app.js"></script>
 <script src="js/stadium.js"></script>
 <script src="js/games/g01.js"></script>

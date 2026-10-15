@@ -37,9 +37,9 @@
   MF.registerGame({
     num: 4, slug: 'descubra-o-card',
     rules: {
-      pt: ['Uma carta real do FIFA / EA FC (FIFA 15 a EA FC 26) está escondida — este é o modo dedicado às cartas do videogame.', 'A primeira dica é o tipo da carta e a edição. Cada palpite errado ou pulo revela a próxima dica. Acertou, a carta vira na tela.', 'Fácil: cartas de craques (geral 86+), com seleção e posição logo no começo e palpites livres. Normal: cartas 80+, palpites livres. Difícil: qualquer carta, dicas na ordem mais difícil e até 8 palpites. Lendário: cartas abaixo de 85, o clube nunca aparece e só 4 palpites.'],
-      en: ['A real FIFA / EA FC card (FIFA 15 to EA FC 26) is hidden — this is the mode dedicated to video game cards.', 'The first hint is the card type and edition. Each wrong guess or skip reveals the next hint. Get it right and the card flips over.', 'Easy: star cards (86+ overall), with nation and position early and unlimited guesses. Normal: 80+ cards, unlimited guesses. Hard: any card, hints in the hardest order and up to 8 guesses. Legendary: cards under 85, the club never shows and only 4 guesses.'],
-      es: ['Una carta real de FIFA / EA FC (FIFA 15 a EA FC 26) está oculta — este es el modo dedicado a las cartas del videojuego.', 'La primera pista es el tipo de carta y la edición. Cada fallo o salto revela la siguiente pista. Si aciertas, la carta se da la vuelta.', 'Fácil: cartas de cracks (media 86+), con selección y posición al principio e intentos libres. Normal: cartas 80+, intentos libres. Difícil: cualquier carta, pistas en el orden más difícil y hasta 8 intentos. Legendario: cartas por debajo de 85, el club nunca aparece y solo 4 intentos.'],
+      pt: ['Uma carta real do FIFA / EA FC (FIFA 15 a EA FC 26) está escondida — este é o modo dedicado às cartas do videogame.', 'A primeira dica é o tipo da carta e a edição. Cada palpite errado ou pulo revela a próxima dica. Acertou, a carta vira na tela.', 'Ajuda: uma vez por partida, mostra as iniciais e o tamanho do nome.', 'Fácil: cartas de craques conhecidos na mídia (geral 86+), com seleção e posição logo no começo e palpites livres. Normal: cartas 80+ de jogadores conhecidos das principais ligas, palpites livres. Difícil: jogadores das principais ligas e lendas (sem os mais óbvios), dicas na ordem mais difícil e até 8 palpites. Lendário: cartas abaixo de 85, o clube nunca aparece e só 4 palpites.'],
+      en: ['A real FIFA / EA FC card (FIFA 15 to EA FC 26) is hidden — this is the mode dedicated to video game cards.', 'The first hint is the card type and edition. Each wrong guess or skip reveals the next hint. Get it right and the card flips over.', 'Help: once per game, shows the initials and length of the name.', 'Easy: media-famous stars (86+ overall), with nation and position early and unlimited guesses. Normal: 80+ cards of well-known top-league players, unlimited guesses. Hard: top-league players and legends (no obvious picks), hints in the hardest order and up to 8 guesses. Legendary: cards under 85, the club never shows and only 4 guesses.'],
+      es: ['Una carta real de FIFA / EA FC (FIFA 15 a EA FC 26) está oculta — este es el modo dedicado a las cartas del videojuego.', 'La primera pista es el tipo de carta y la edición. Cada fallo o salto revela la siguiente pista. Si aciertas, la carta se da la vuelta.', 'Ayuda: una vez por partida, muestra las iniciales y el largo del nombre.', 'Fácil: cartas de cracks conocidos (media 86+), con selección y posición al principio e intentos libres. Normal: cartas 80+ de jugadores conocidos de las grandes ligas, intentos libres. Difícil: jugadores de las grandes ligas y leyendas (sin los más obvios), pistas en el orden más difícil y hasta 8 intentos. Legendario: cartas por debajo de 85, el club nunca aparece y solo 4 intentos.'],
     },
     options: [MF.levelOpt(), MF.timerOpt([0, 90, 60])],
     preview() { return h('div', { class: 'fcard gold mini back', 'aria-hidden': 'true' }, h('span', null, '?')); },
@@ -51,7 +51,10 @@
       // a resposta é o jogador: cartas diferentes do mesmo jogador não se repetem em dias próximos
       // cartas do EA FC 25 e 26 entram a partir do desafio nº 4 (15/10/2026); antes disso, o sorteio fica como era
       const NEW = MF.today() >= 3;
-      const card = MF.dailyPick(NEW ? 'g4-card4' : 'g4-card3', lvl, (l) => games.cards.filter((c) => (NEW || c[1] < 25) && OK[l](c)), (c) => c[0]);
+      // a partir de 16/10/2026: o jogador da carta segue o critério do nível (Difícil sem os óbvios)
+      const card = MF.isNew()
+        ? MF.dailyPick('g4-card5', lvl, (l) => MF.byLevel(l, games.cards.filter(OK[l]), (c) => P[c[0]], { answer: true, min: 10 }), (c) => c[0])
+        : MF.dailyPick(NEW ? 'g4-card4' : 'g4-card3', lvl, (l) => games.cards.filter((c) => (NEW || c[1] < 25) && OK[l](c)), (c) => c[0]);
       const [pi, ver, ovr, pos, ci, val, age] = card;
       const p = P[pi];
       const club = clubs[ci];
@@ -100,12 +103,15 @@
         st.scoreLabel = p.n + ' · ' + ovr + ' · ' + MF.edition(ver);
         ctx.finish(win, win ? tries : 0, line);
         ac.hidden = true;
+        helpBtn.refresh();
         paint();
       }
       const skipBtn = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => act(null) }, t('skip'));
-      const ac = MF.autocomplete({ source: MF.playerSource(), onPick: (it) => act(it.id), extra: [skipBtn, h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => end(false) }, t('giveUp'))] });
+      // ajuda única: mostra as iniciais e o tamanho do nome
+      const helpBtn = MF.helpButton(ctx, () => MF.ht('initials', { m: MF.mask(p.n) }));
+      const ac = MF.autocomplete({ source: MF.playerSource(), onPick: (it) => act(it.id), extra: [skipBtn, helpBtn, h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => end(false) }, t('giveUp'))] });
       board.appendChild(h('div', { class: 'bar' }, left, ctx.timerEl));
-      board.appendChild(h('div', { class: 'card-layout' }, slot, h('div', { class: 'card-side' }, list, ac, guesses)));
+      board.appendChild(h('div', { class: 'card-layout' }, slot, h('div', { class: 'card-side' }, list, ac, helpBtn.note, guesses)));
       if (ctx.finished()) ac.hidden = true;
       paint();
     },

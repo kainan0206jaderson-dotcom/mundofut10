@@ -24,7 +24,7 @@
     for (const [c, n] of cnt) {
       if (n < 10) continue;
       const big = BIG_CLUBS.includes(clubs[c].n);
-      cats.push({ key: 'c' + c, lv: big ? 0 : n >= 25 ? 1 : 2, label: lab('Jogou no ' + clubs[c].n, 'Played for ' + clubs[c].n, 'Jugó en el ' + clubs[c].n), test: ofClub(c),
+      cats.push({ key: 'c' + c, clubs: [c], lv: big ? 0 : n >= 25 ? 1 : 2, label: lab('Jogou no ' + clubs[c].n, 'Played for ' + clubs[c].n, 'Jugó en el ' + clubs[c].n), test: ofClub(c),
         near: (p) => p.leagues.includes(clubs[c].l) });
     }
     // dois clubes
@@ -32,7 +32,7 @@
     for (let a = 0; a < bigIdx.length; a++) for (let b = a + 1; b < bigIdx.length; b++) {
       const A = bigIdx[a], B = bigIdx[b];
       const n = core.filter((p) => p.clubs.includes(A) && p.clubs.includes(B)).length;
-      if (n >= 6) cats.push({ key: 'cc' + A + '-' + B, lv: 2, label: lab('Jogou no ' + clubs[A].n + ' e no ' + clubs[B].n, 'Played for ' + clubs[A].n + ' and ' + clubs[B].n, 'Jugó en el ' + clubs[A].n + ' y el ' + clubs[B].n),
+      if (n >= 6) cats.push({ key: 'cc' + A + '-' + B, clubs: [A, B], lv: 2, label: lab('Jogou no ' + clubs[A].n + ' e no ' + clubs[B].n, 'Played for ' + clubs[A].n + ' and ' + clubs[B].n, 'Jugó en el ' + clubs[A].n + ' y el ' + clubs[B].n),
         test: (p) => p.clubs.includes(A) && p.clubs.includes(B), near: (p) => p.clubs.includes(A) || p.clubs.includes(B) });
     }
     // seleções
@@ -87,9 +87,9 @@
   MF.registerGame({
     num: 8, slug: 'modo-impostor',
     rules: {
-      pt: ['A categoria do dia fica no centro e 10 jogadores aparecem em volta (só jogadores de 1990 para cá).', 'Marque todos que pertencem à categoria. Quem não pertence é impostor. Categorias: clubes, seleções, ligas, gols e participações em Copas do Mundo, Bola de Ouro, títulos, marcas pela seleção e valores do Transfermarkt.', 'Fácil: categorias amplas e impostores bem diferentes. Normal: impostores da mesma geração. Difícil: categorias mais específicas e impostores parecidos. Lendário: impostores "quase" (jogou a Copa mas não marcou, ficou fora do top 10, chegou perto da marca).', 'Estilo Normal: marque todos e confirme. Um por um: cada toque vale, e um impostor encerra o jogo.'],
-      en: ['Today’s category is in the middle with 10 players around it (only players from 1990 on).', 'Pick everyone who fits the category. Those who don’t are impostors. Categories: clubs, nations, leagues, World Cup goals and appearances, Ballon d’Or, titles, international records and Transfermarkt values.', 'Easy: broad categories and very different impostors. Normal: impostors from the same generation. Hard: narrower categories and similar impostors. Legendary: "nearly" impostors (played the World Cup but didn’t score, just outside the top 10, close to the mark).', 'Normal style: pick them all and confirm. One by one: every tap counts and one impostor ends the game.'],
-      es: ['La categoría del día está en el centro con 10 jugadores alrededor (solo jugadores de 1990 en adelante).', 'Marca a todos los que encajan en la categoría. Los que no, son impostores. Categorías: clubes, selecciones, ligas, goles y participaciones en Mundiales, Balón de Oro, títulos, marcas con la selección y valores de Transfermarkt.', 'Fácil: categorías amplias e impostores muy distintos. Normal: impostores de la misma generación. Difícil: categorías más específicas e impostores parecidos. Legendario: impostores "casi" (jugó el Mundial pero no marcó, se quedó fuera del top 10, rozó la marca).', 'Estilo Normal: márcalos todos y confirma. Uno a uno: cada toque cuenta y un impostor termina el juego.'],
+      pt: ['A categoria do dia fica no centro e 10 jogadores aparecem em volta (só jogadores de 1990 para cá).', 'Marque todos que pertencem à categoria. Quem não pertence é impostor. Categorias: clubes, seleções, ligas, gols e participações em Copas do Mundo, Bola de Ouro, títulos, marcas pela seleção e valores do Transfermarkt.', 'Ajuda: uma vez por partida, revela um impostor.', 'Fácil: craques conhecidos, clubes famosos, categorias amplas e impostores bem diferentes. Normal: jogadores conhecidos das principais ligas, clubes famosos e campeões da Champions, impostores da mesma geração. Difícil: jogadores das principais ligas e lendas, campeões europeus e clubes da 1ª divisão, impostores parecidos. Lendário: impostores "quase" (jogou a Copa mas não marcou, ficou fora do top 10, chegou perto da marca).', 'Estilo Normal: marque todos e confirme. Um por um: cada toque vale, e um impostor encerra o jogo.'],
+      en: ['Today’s category is in the middle with 10 players around it (only players from 1990 on).', 'Pick everyone who fits the category. Those who don’t are impostors. Categories: clubs, nations, leagues, World Cup goals and appearances, Ballon d’Or, titles, international records and Transfermarkt values.', 'Help: once per game, reveals one impostor.', 'Easy: famous players and clubs, broad categories and very different impostors. Normal: well-known top-league players, famous clubs and Champions League winners, impostors from the same generation. Hard: top-league players and legends, European winners and top-flight clubs, similar impostors. Legendary: "nearly" impostors (played the World Cup but didn’t score, just outside the top 10, close to the mark).', 'Normal style: pick them all and confirm. One by one: every tap counts and one impostor ends the game.'],
+      es: ['La categoría del día está en el centro con 10 jugadores alrededor (solo jugadores de 1990 en adelante).', 'Marca a todos los que encajan en la categoría. Los que no, son impostores. Categorías: clubes, selecciones, ligas, goles y participaciones en Mundiales, Balón de Oro, títulos, marcas con la selección y valores de Transfermarkt.', 'Ayuda: una vez por partida, revela un impostor.', 'Fácil: cracks y clubes famosos, categorías amplias e impostores muy distintos. Normal: jugadores conocidos de las grandes ligas, clubes famosos y campeones de la Champions, impostores de la misma generación. Difícil: jugadores de las grandes ligas y leyendas, campeones europeos y clubes de primera, impostores parecidos. Legendario: impostores "casi" (jugó el Mundial pero no marcó, se quedó fuera del top 10, rozó la marca).', 'Estilo Normal: márcalos todos y confirma. Uno a uno: cada toque cuenta y un impostor termina el juego.'],
     },
     options: [
       MF.levelOpt(),
@@ -101,11 +101,14 @@
       const st = ctx.state;
       const lvl = MF.level(st);
       const { cats, core } = categories();
-      const NFor = (l) => core.filter((p) => p.r >= NOTABLE[l] || (l !== 'easy' && p.famous));
+      // a partir de 16/10/2026: jogadores e clubes das categorias seguem o critério do nível (Lendário mantém a base)
+      const NEW = MF.isNew();
+      const NFor = (l) => (NEW && l !== 'legend' ? core.filter((p) => MF.playerOk(l, p)) : core.filter((p) => p.r >= NOTABLE[l] || (l !== 'easy' && p.famous)));
       const N = NFor(lvl);
       const LVLS = { easy: [0], normal: [0, 1], hard: [1, 2], legend: [2, 3] };
-      const okFor = (l) => { const n = NFor(l); return cats.filter((c) => LVLS[l].includes(c.lv) && n.filter(c.test).length >= 6 && n.filter((p) => !c.test(p)).length >= 10); };
-      const cat = MF.dailyPick('g8-imp3', lvl, okFor, (c) => c.key);
+      const clubsOk = (c, l) => !NEW || l === 'legend' || !c.clubs || c.clubs.every((x) => MF.clubOk(l, x));
+      const okFor = (l) => { const n = NFor(l); return cats.filter((c) => LVLS[l].includes(c.lv) && clubsOk(c, l) && n.filter(c.test).length >= 6 && n.filter((p) => !c.test(p)).length >= 10); };
+      const cat = MF.dailyPick(NEW ? 'g8-imp4' : 'g8-imp3', lvl, okFor, (c) => c.key);
       const rnd = MF.rng('imp2:' + MF.today() + ':' + lvl);
       const ins = N.filter(cat.test).sort((a, b) => b.r - a.r);
       const outs = N.filter((p) => !cat.test(p));
@@ -140,11 +143,12 @@
           const p = MF.data.P[i];
           const on = st.sel.includes(i);
           const isGood = goodSet.has(i);
-          const cls = 'imp-p' + (on ? ' on' : '') + (done ? (isGood ? ' good' : ' imp-bad') : one && on ? (isGood ? ' good' : ' imp-bad') : '') + (pop === i ? ' pop' : '');
+          const shown = !done && !on && st.helpImp === i; // impostor revelado pela ajuda
+          const cls = 'imp-p' + (on ? ' on' : '') + (done ? (isGood ? ' good' : ' imp-bad') : one && on ? (isGood ? ' good' : ' imp-bad') : '') + (shown ? ' imp-shown' : '') + (pop === i ? ' pop' : '');
           const ang = (n / ring.length) * Math.PI * 2 - Math.PI / 2;
           wrap.appendChild(h('button', {
             type: 'button', class: cls, style: { '--x': (50 + 41 * Math.cos(ang)).toFixed(2) + '%', '--y': (50 + 41 * Math.sin(ang)).toFixed(2) + '%' },
-            'aria-pressed': on ? 'true' : 'false', disabled: done || (one && on), onclick: () => tap(i),
+            'aria-pressed': on ? 'true' : 'false', disabled: done || (one && on) || shown, onclick: () => tap(i),
           }, (done || on || lvl === 'easy') ? MF.photo(p.n, p.nat, 30) : null, h('span', null, p.n)));
         });
         counter.textContent = st.sel.length + ' ' + t('selected');
@@ -172,11 +176,21 @@
         st.scoreLabel = labelOf(cat) + ' · ' + hits + '/' + good.length;
         ctx.finish(win, hits, line);
         paint();
+        helpBtn.refresh();
       }
       ctx.onTimeUp = () => end();
+      // ajuda única: revela (e tira do jogo) um impostor que ainda não foi marcado
+      const helpBtn = MF.helpButton(ctx, () => {
+        const imp = ring.find((i) => !goodSet.has(i) && !st.sel.includes(i));
+        if (imp == null) return false;
+        st.helpImp = imp;
+        paint();
+        return MF.ht('impostor');
+      });
       board.appendChild(h('div', { class: 'bar' }, counter, lvl === 'easy' ? h('span', { class: 'pill' }, good.length + ' ' + t('impCount')) : null, ctx.timerEl));
       board.appendChild(wrap);
-      board.appendChild(h('div', { class: 'row-btns center' }, confirm));
+      board.appendChild(h('div', { class: 'row-btns center' }, helpBtn, confirm));
+      board.appendChild(helpBtn.note);
       paint();
     },
   });

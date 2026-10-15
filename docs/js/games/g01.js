@@ -6,9 +6,9 @@
   MF.registerGame({
     num: 1, slug: 'quem-e-craque', chances: 5,
     rules: {
-      pt: ['Você recebe a temporada e a liga de um jogador misterioso.', 'Palpite um nome ou pule: cada palpite errado ou pulo revela mais duas pistas (jogos, gols, assistências, clube, seleção, posição, idade e camisa).', 'Você tem 5 chances de resposta. Pular não gasta chance. No 5º erro, o desafio termina como errado.', 'Dificuldade — Fácil: começa com clube e seleção já revelados. Normal: pistas em ordem aleatória, duas por vez. Difícil: clube e seleção bloqueados. Lendário: clube, seleção e camisa bloqueados, e só uma pista nova por vez.'],
-      en: ['You get the season and league of a mystery player.', 'Guess or skip: each wrong guess or skip reveals two more clues (apps, goals, assists, club, nation, position, age and shirt).', 'You have 5 answer chances. Skipping is free. On the 5th miss the challenge ends as lost.', 'Difficulty — Easy: starts with club and nation already shown. Normal: clues in random order, two at a time. Hard: club and nation locked. Legendary: club, nation and shirt locked, and only one new clue at a time.'],
-      es: ['Recibes la temporada y la liga de un jugador misterioso.', 'Adivina o salta: cada fallo o salto revela dos pistas más (partidos, goles, asistencias, club, selección, posición, edad y dorsal).', 'Tienes 5 oportunidades de respuesta. Saltar no gasta oportunidad. Al 5.º fallo, el desafío termina como perdido.', 'Dificultad — Fácil: empieza con club y selección ya revelados. Normal: pistas en orden aleatorio, de dos en dos. Difícil: club y selección bloqueados. Legendario: club, selección y dorsal bloqueados, y solo una pista nueva cada vez.'],
+      pt: ['Você recebe a temporada e a liga de um jogador misterioso.', 'Palpite um nome ou pule: cada palpite errado ou pulo revela mais duas pistas (jogos, gols, assistências, clube, seleção, posição, idade e camisa).', 'Você tem 5 chances de resposta. Pular não gasta chance. No 5º erro, o desafio termina como errado.', 'Ajuda: uma vez por partida, mostra as iniciais e o tamanho do nome.', 'Dificuldade — Fácil: craques conhecidos, começa com clube e seleção já revelados. Normal: pistas em ordem aleatória, duas por vez. Difícil: sem os óbvios (Messi, Cristiano Ronaldo e vencedores da Bola de Ouro), clube e seleção bloqueados. Lendário: clube, seleção e camisa bloqueados, e só uma pista nova por vez.'],
+      en: ['You get the season and league of a mystery player.', 'Guess or skip: each wrong guess or skip reveals two more clues (apps, goals, assists, club, nation, position, age and shirt).', 'You have 5 answer chances. Skipping is free. On the 5th miss the challenge ends as lost.', 'Help: once per game, shows the initials and length of the name.', 'Difficulty — Easy: well-known stars, starts with club and nation already shown. Normal: clues in random order, two at a time. Hard: no obvious picks (Messi, Cristiano Ronaldo, Ballon d’Or winners), club and nation locked. Legendary: club, nation and shirt locked, and only one new clue at a time.'],
+      es: ['Recibes la temporada y la liga de un jugador misterioso.', 'Adivina o salta: cada fallo o salto revela dos pistas más (partidos, goles, asistencias, club, selección, posición, edad y dorsal).', 'Tienes 5 oportunidades de respuesta. Saltar no gasta oportunidad. Al 5.º fallo, el desafío termina como perdido.', 'Ayuda: una vez por partida, muestra las iniciales y el largo del nombre.', 'Dificultad — Fácil: cracks conocidos, empieza con club y selección ya revelados. Normal: pistas en orden aleatorio, de dos en dos. Difícil: sin los obvios (Messi, Cristiano Ronaldo y ganadores del Balón de Oro), club y selección bloqueados. Legendario: club, selección y dorsal bloqueados, y solo una pista nueva cada vez.'],
     },
     options: [
       MF.levelOpt(),
@@ -23,7 +23,11 @@
       const lvl = MF.level(st);
       const rows = games.statdle;
       // cada dificuldade tem o seu jogador do dia
-      const row = MF.dailyPick('g1-statdle4', lvl, () => rows, (r) => r[0]);
+      // a partir de 16/10/2026: jogador da resposta pelo critério do nível (Fácil = craques da mídia; Normal = conhecidos das
+      // principais ligas; Difícil = principais ligas + lendas, sem os óbvios como Messi e Cristiano Ronaldo)
+      const row = MF.isNew()
+        ? MF.dailyPick('g1-statdle5', lvl, (l) => MF.byLevel(l, rows, (r) => P[r[0]], { answer: true, min: 5 }), (r) => r[0])
+        : MF.dailyPick('g1-statdle4', lvl, () => rows, (r) => r[0]);
       const [pi, season, league, club, apps, goals, ast, age, pos, num] = row;
       const target = P[pi];
       const LOCK = lvl === 'legend' ? ['club', 'nat', 'shirt'] : lvl === 'hard' ? ['club', 'nat'] : [];
@@ -98,12 +102,16 @@
         ctx.finish(win, win ? MAX - misses() : 0, line, { type: 'player', pi });
         paint(false);
         input.hidden = true;
+        helpBtn.refresh();
       }
       const skipBtn = h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => act(null) }, t('skip'));
-      const input = MF.autocomplete({ source: MF.playerSource((i) => MF.era(P[i])), onPick: (it) => act(it.id), extra: skipBtn });
+      // ajuda única: mostra as iniciais e o tamanho do nome
+      const helpBtn = MF.helpButton(ctx, () => MF.ht('initials', { m: MF.mask(target.n) }));
+      const input = MF.autocomplete({ source: MF.playerSource((i) => MF.era(P[i])), onPick: (it) => act(it.id), extra: [skipBtn, helpBtn] });
       board.appendChild(h('div', { class: 'bar' }, left, ctx.timerEl));
       board.appendChild(sheet);
       if (!ctx.finished()) board.appendChild(input);
+      if (!ctx.finished()) board.appendChild(helpBtn.note);
       board.appendChild(guessList);
       paint(false);
       if (ctx.finished()) input.hidden = true;

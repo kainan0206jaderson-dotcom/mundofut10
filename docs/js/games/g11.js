@@ -69,9 +69,9 @@
   MF.registerGame({
     num: 11, slug: 'jogou-por-onde',
     rules: {
-      pt: ['Só lendas: um time de craques aposentados que marcaram época dos anos 70 aos 2000 (e quem parou há pouco), numa formação sorteada, com o período ao lado do nome (ex.: 97/02 = de 1997 a 2002).', 'Digite o clube onde o jogador destacado atuava naquele período. Vale qualquer clube em que ele jogou nesses anos. Toque em outro jogador para mudar a ordem.', 'Fácil: as maiores lendas, passagens longas por clubes grandes e a bandeira do país do clube como dica. Normal: lendas conhecidas e passagens de 2 anos ou mais. Difícil: mais lendas e qualquer passagem. Lendário: qualquer lenda, inclusive passagens curtas e clubes menores.', 'Tentativas livres: erre quantas vezes quiser, pule ou toque na bandeira branca para encerrar. Acerte todos para vencer.'],
-      en: ['Legends only: a team of retired greats from the 70s to the 2000s (and recent retirees), in a random formation, with the period next to the name (e.g. 97/02 = 1997 to 2002).', 'Type the club where the highlighted player was in that period. Any club he played for in those years counts. Tap another player to change the order.', 'Easy: the biggest legends, long spells at big clubs and the club’s country flag as a hint. Normal: well-known legends and spells of 2+ years. Hard: more legends and any spell. Legendary: any legend, including short spells and smaller clubs.', 'Unlimited tries: miss as often as you like, skip or tap the white flag to end. Get them all to win.'],
-      es: ['Solo leyendas: un equipo de cracks retirados que marcaron época de los 70 a los 2000 (y quienes se retiraron hace poco), en una formación sorteada, con el periodo junto al nombre (ej.: 97/02 = de 1997 a 2002).', 'Escribe el club donde jugaba el jugador destacado en ese periodo. Vale cualquier club en el que jugó en esos años. Toca otro jugador para cambiar el orden.', 'Fácil: las mayores leyendas, etapas largas en clubes grandes y la bandera del país del club como pista. Normal: leyendas conocidas y etapas de 2 años o más. Difícil: más leyendas y cualquier etapa. Legendario: cualquier leyenda, incluso etapas cortas y clubes pequeños.', 'Intentos libres: falla cuantas veces quieras, salta o toca la bandera blanca para terminar. Acierta todos para ganar.'],
+      pt: ['Só lendas: um time de craques aposentados que marcaram época dos anos 70 aos 2000 (e quem parou há pouco), numa formação sorteada, com o período ao lado do nome (ex.: 97/02 = de 1997 a 2002).', 'Digite o clube onde o jogador destacado atuava naquele período. Vale qualquer clube em que ele jogou nesses anos. Toque em outro jogador para mudar a ordem.', 'Fácil: as maiores lendas, passagens longas por clubes grandes e a bandeira do país do clube como dica. Normal: lendas conhecidas e passagens de 2 anos ou mais. Difícil: mais lendas e qualquer passagem. Lendário: qualquer lenda, inclusive passagens curtas e clubes menores.', 'Tentativas livres: erre quantas vezes quiser, pule ou toque na bandeira branca para encerrar. Acerte todos para vencer. Ajuda: uma vez por partida, mostra as iniciais do clube do jogador destacado.'],
+      en: ['Legends only: a team of retired greats from the 70s to the 2000s (and recent retirees), in a random formation, with the period next to the name (e.g. 97/02 = 1997 to 2002).', 'Type the club where the highlighted player was in that period. Any club he played for in those years counts. Tap another player to change the order.', 'Easy: the biggest legends, long spells at big clubs and the club’s country flag as a hint. Normal: well-known legends and spells of 2+ years. Hard: more legends and any spell. Legendary: any legend, including short spells and smaller clubs.', 'Unlimited tries: miss as often as you like, skip or tap the white flag to end. Get them all to win. Help: once per game, shows the initials of the highlighted player’s club.'],
+      es: ['Solo leyendas: un equipo de cracks retirados que marcaron época de los 70 a los 2000 (y quienes se retiraron hace poco), en una formación sorteada, con el periodo junto al nombre (ej.: 97/02 = de 1997 a 2002).', 'Escribe el club donde jugaba el jugador destacado en ese periodo. Vale cualquier club en el que jugó en esos años. Toca otro jugador para cambiar el orden.', 'Fácil: las mayores leyendas, etapas largas en clubes grandes y la bandera del país del club como pista. Normal: leyendas conocidas y etapas de 2 años o más. Difícil: más leyendas y cualquier etapa. Legendario: cualquier leyenda, incluso etapas cortas y clubes pequeños.', 'Intentos libres: falla cuantas veces quieras, salta o toca la bandera blanca para terminar. Acierta todos para ganar. Ayuda: una vez por partida, muestra las iniciales del club del jugador destacado.'],
     },
     options: [MF.levelOpt(), MF.timerOpt([0, 120, 90, 60])],
     preview() { return h('div', { class: 'pv-draft br' }, F['4-3-3'].map(([, x, y]) => h('b', { style: { left: x + '%', top: y + '%' } }))); },
@@ -153,9 +153,15 @@
         st.scoreLabel = t('score') + ': ' + ok + '/' + items.length;
         ctx.finish(ok === items.length, ok, line);
         ac.hidden = true;
+        helpBtn.refresh();
         paint();
       }
       ctx.onTimeUp = () => end();
+      // ajuda única: mostra as iniciais do clube do jogador destacado
+      const helpBtn = MF.helpButton(ctx, () => {
+        if (active < 0) return false;
+        return MF.ht('clubLetter', { m: MF.mask(clubs[items[active].club].n) }) + ' (' + items[active].name + ')';
+      });
       const list = allClubs();
       const ac = MF.autocomplete({
         placeholder: t('typeClub'),
@@ -166,10 +172,10 @@
             .sort((a, b) => (b.k.startsWith(nq) - a.k.startsWith(nq)) || b.sz - a.sz).slice(0, 8).map((c) => ({ id: c.i, label: c.n }));
         },
         onPick: (it) => guess(it.id),
-        extra: [h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => { if (ctx.finished()) return; nextActive(); paint(); } }, t('skip')), h('button', { class: 'btn btn-ghost flag-btn', type: 'button', 'aria-label': t('giveUp'), title: t('giveUp'), onclick: () => end() }, MF.icon('flag'))],
+        extra: [h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => { if (ctx.finished()) return; nextActive(); paint(); } }, t('skip')), helpBtn, h('button', { class: 'btn btn-ghost flag-btn', type: 'button', 'aria-label': t('giveUp'), title: t('giveUp'), onclick: () => end() }, MF.icon('flag'))],
       });
       board.appendChild(h('div', { class: 'bar' }, h('span', { class: 'pill' }, t('formation') + ' ' + L.form), score, ctx.timerEl));
-      board.appendChild(h('div', { class: 'draft-layout' }, h('div', null, pitch), h('div', { class: 'draft-side' }, now, ac)));
+      board.appendChild(h('div', { class: 'draft-layout' }, h('div', null, pitch), h('div', { class: 'draft-side' }, now, ac, helpBtn.note)));
       if (ctx.finished()) ac.hidden = true;
       paint();
     },

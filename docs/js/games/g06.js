@@ -1,9 +1,9 @@
 /* Jogo 6 — Pirâmide (ordenar 10 jogadores numa pirâmide 1-2-3-4)
-   Categorias reais, sem notas de videogame: artilharia de cada Copa (1990–2026), gols e jogos em Copas, jogos e gols por seleção,
-   maior valor de mercado e maior transferência (Transfermarkt), votação da Bola de Ouro e recordes históricos.
-   A dificuldade muda a categoria e os jogadores: no Fácil, nomes muito conhecidos e números bem separados; no Lendário,
-   jogadores menos óbvios e números colados. A Ajuda (uma vez por partida, em qualquer dificuldade) pinta de verde quem está
-   no lugar certo e de vermelho quem está errado. */
+   Desde o desafio nº 5 (16/10/2026) toda pergunta é um Top 10 de verdade (listas curadas com fonte, em games.json "tops"):
+   artilharia só de seleções e clubes campeões de título importante, jogos pela seleção só das campeãs da Copa, e números
+   (jogos, assistências, gols em competições) só de times e competições conhecidos; mais a artilharia de cada Copa e a votação
+   da Bola de Ouro. A Ajuda (uma vez por partida) pinta de verde quem está no lugar certo e de vermelho quem está errado.
+   categories() é a versão antiga, usada só até o desafio nº 4 (para não trocar a pergunta no meio do dia). */
 (function () {
   'use strict';
   const MF = window.MF, h = MF.h, t = (k) => MF.t(k);
@@ -69,6 +69,44 @@
     }
     return (MF._pyr2 = cats);
   }
+
+  // ------------------------------------------------------------------ categorias Top 10 (a partir do desafio nº 5, 16/10/2026)
+  // Toda pergunta é um Top 10 de verdade (sem sorteio de jogadores):
+  // - seleção (jogos): só seleções campeãs da Copa do Mundo;
+  // - artilharia: só clubes e seleções campeões de título importante (Copa, Champions, Europa League, Libertadores, Copa América, Eurocopa);
+  // - números (jogos, assistências, gols em competições, mercado): só times e competições conhecidos.
+  // Listas curadas em games.json "tops" (tools/tops.json, com a fonte e a data de cada uma).
+  const U2 = { assist: { pt: 'assistências', en: 'assists', es: 'asistencias' } };
+  function topCats() {
+    if (MF._pyr3) return MF._pyr3;
+    const { games, P } = MF.data;
+    const cats = [];
+    const linkP = (name, nat) => { const p = MF.resolvePlayer(name); return p && (!nat || p.nat === nat) ? p : null; };
+    for (const c of games.tops || []) {
+      const items = c.it.map(([n, v, nat]) => {
+        const na = nat || c.nat || '';
+        const p = linkP(n, na);
+        return { n, v, nat: na, pi: p ? p.i : -1, ph: c.club ? na + ' ' + c.club : na };
+      });
+      cats.push({ key: 't-' + c.k, lv: c.lv, fixed: true, src: c.src, title: { pt: c.t[0], en: c.t[1], es: c.t[2] }, unit: U[c.u] || U2[c.u] || U.gols, items: items.slice(0, 10) });
+    }
+    // (mercado e transferências ficaram de fora: a base não tem todas as marcas, então não seria um Top 10 de verdade)
+    // artilharia de cada Copa do Mundo (a Copa é título importante): Top 10 da edição
+    for (const [y, rows] of Object.entries(games.wcg || {})) {
+      const items = rows.slice().sort((a, b) => b[3] - a[3]).slice(0, 10).map(([pi, n, nat, g]) => ({ n: pi >= 0 ? P[pi].n : n, pi, nat, v: g }));
+      if (items.length === 10) cats.push({ key: 't-wcg' + y, lv: +y >= 2002 ? 2 : 3, fixed: true, src: 'FIFA', unit: U.gols, items,
+        title: { pt: 'Top 10: artilheiros da Copa do Mundo de ' + y, en: 'Top 10: top scorers at the ' + y + ' World Cup', es: 'Top 10: goleadores del Mundial ' + y } });
+    }
+    // votação da Bola de Ouro (o top 10 do ano)
+    for (const [y, rows] of Object.entries(games.ballon)) {
+      if (rows.some((r) => r[4] == null)) continue;
+      const pct = +y >= 2010 && +y <= 2015;
+      const items = rows.slice(0, 10).map((r) => { const p = linkP(r[1], r[2]); return { n: r[1], pi: p ? p.i : -1, nat: r[2], v: r[4] }; });
+      cats.push({ key: 't-bo' + y, lv: +y >= 2008 ? 2 : 3, fixed: true, src: 'France Football', unit: pct ? U.pct : U.pts, items,
+        title: { pt: 'Top 10: votação da Bola de Ouro ' + y, en: 'Top 10: Ballon d’Or ' + y + ' voting', es: 'Top 10: votación del Balón de Oro ' + y } });
+    }
+    return (MF._pyr3 = cats.filter((c) => c.items.length === 10));
+  }
   // escolhe os 10 do dia conforme a dificuldade (determinístico)
   function pick(cat, lvl, rnd) {
     if (cat.fixed) return cat.items.slice(0, 10);
@@ -108,9 +146,9 @@
   MF.registerGame({
     num: 6, slug: 'piramide-do-atleta',
     rules: {
-      pt: ['A categoria do dia aparece no topo: gols numa Copa do Mundo, jogos ou gols pela seleção, maior valor de mercado ou transferência (Transfermarkt), votação da Bola de Ouro…', 'Os 10 jogadores chegam um por vez. Toque numa casa vazia para colocá-lo: o 1º no topo, depois 2, 3 e 4 por fileira, da esquerda para a direita. Para trocar, toque num jogador já colocado e depois na casa de destino.', 'Ajuda: uma vez por partida, em qualquer dificuldade, pinta de verde quem está no lugar certo e de vermelho quem está errado.', 'Fácil: jogadores muito conhecidos, números bem separados e a fileira de cada um aparece; vence com 6 acertos. Normal: vence com 7. Difícil: jogadores menos óbvios e números mais próximos; vence com 8. Lendário: números colados, sem trocas (cada jogador fica onde foi colocado); vence com 8.'],
-      en: ['Today’s category is at the top: goals at a World Cup, caps or goals for a nation, highest market value or transfer fee (Transfermarkt), Ballon d’Or voting…', 'The 10 players arrive one at a time. Tap an empty spot to place them: 1st at the top, then rows of 2, 3 and 4, left to right. To swap, tap a placed player and then the target spot.', 'Help: once per game, in any difficulty, turns players in the right spot green and the wrong ones red.', 'Easy: very well-known players, values far apart and each player’s row is shown; win with 6 right. Normal: win with 7. Hard: less obvious players and closer values; win with 8. Legendary: very close values and no swaps; win with 8.'],
-      es: ['La categoría del día está arriba: goles en un Mundial, partidos o goles con la selección, mayor valor de mercado o traspaso (Transfermarkt), votación del Balón de Oro…', 'Los 10 jugadores llegan de uno en uno. Toca una casilla vacía para colocarlo: el 1.º arriba, luego filas de 2, 3 y 4, de izquierda a derecha. Para cambiar, toca un jugador colocado y luego la casilla de destino.', 'Ayuda: una vez por partida, en cualquier dificultad, pinta de verde a los bien colocados y de rojo a los mal colocados.', 'Fácil: jugadores muy conocidos, números bien separados y se muestra la fila de cada uno; ganas con 6. Normal: ganas con 7. Difícil: jugadores menos obvios y números más cercanos; ganas con 8. Legendario: números muy pegados y sin cambios; ganas con 8.'],
+      pt: ['Cada pergunta é um Top 10 de verdade: maiores artilheiros de seleções e clubes campeões, mais jogos pela seleção (só campeãs da Copa), recordes da Champions, das Copas e das grandes ligas, Bola de Ouro… A fonte aparece embaixo da pergunta.', 'Os 10 jogadores chegam um por vez. Toque numa casa vazia para colocá-lo: o 1º no topo, depois 2, 3 e 4 por fileira, da esquerda para a direita. Para trocar, toque num jogador já colocado e depois na casa de destino.', 'Ajuda: uma vez por partida, em qualquer dificuldade, pinta de verde quem está no lugar certo e de vermelho quem está errado.', 'Fácil: os Top 10 mais famosos (Seleção Brasileira, Real, Barça, Flamengo, Champions, Copas) e a fileira de cada um aparece; vence com 6 acertos. Normal: grandes clubes, seleções campeãs e grandes ligas; vence com 7. Difícil: recordes de jogos, Libertadores, Bola de Ouro e artilharia de cada Copa; vence com 8. Lendário: qualquer Top 10, inclusive Copas e Bolas de Ouro antigas, sem trocas; vence com 8.'],
+      en: ['Every question is a real Top 10: all-time top scorers of title-winning nations and clubs, most caps (World Cup winners only), Champions League, World Cup and big-league records, Ballon d’Or… The source is shown under the question.', 'The 10 players arrive one at a time. Tap an empty spot to place them: 1st at the top, then rows of 2, 3 and 4, left to right. To swap, tap a placed player and then the target spot.', 'Help: once per game, in any difficulty, turns players in the right spot green and the wrong ones red.', 'Easy: the most famous Top 10s (Brazil, Real, Barça, Flamengo, Champions League, World Cups) and each player’s row is shown; win with 6. Normal: big clubs, World Cup–winning nations and big leagues; win with 7. Hard: appearance records, Libertadores, Ballon d’Or and each World Cup’s scorers; win with 8. Legendary: any Top 10, including old World Cups and Ballon d’Or, no swaps; win with 8.'],
+      es: ['Cada pregunta es un Top 10 de verdad: máximos goleadores de selecciones y clubes campeones, más partidos con la selección (solo campeonas del Mundial), récords de la Champions, de los Mundiales y de las grandes ligas, Balón de Oro… La fuente aparece bajo la pregunta.', 'Los 10 jugadores llegan de uno en uno. Toca una casilla vacía para colocarlo: el 1.º arriba, luego filas de 2, 3 y 4, de izquierda a derecha. Para cambiar, toca un jugador colocado y luego la casilla de destino.', 'Ayuda: una vez por partida, en cualquier dificultad, pinta de verde a los bien colocados y de rojo a los mal colocados.', 'Fácil: los Top 10 más famosos (Brasil, Real, Barça, Flamengo, Champions, Mundiales) y se muestra la fila de cada uno; ganas con 6. Normal: grandes clubes, selecciones campeonas y grandes ligas; ganas con 7. Difícil: récords de partidos, Libertadores, Balón de Oro y goleadores de cada Mundial; ganas con 8. Legendario: cualquier Top 10, incluso Mundiales y Balones de Oro antiguos, sin cambios; ganas con 8.'],
     },
     options: [MF.levelOpt(), MF.timerOpt([0, 120, 60])],
     preview() { return h('div', { class: 'pv-pyr' }, ROWS.map((r) => h('span', null, r.map(() => h('b'))))); },
@@ -118,12 +156,16 @@
       const st = ctx.state;
       const lvl = MF.level(st);
       const LV = { easy: 0, normal: 1, hard: 2, legend: 3 }[lvl];
-      const all = categories();
+      const NEW = MF.isNew();
+      const all = NEW ? topCats() : categories();
       // Fácil: categorias populares; cada nível sobe a régua (no Lendário vale qualquer uma)
       const distinct = (c) => new Set(c.items.map((x) => x.v)).size;
       const LVN = { easy: 0, normal: 1, hard: 2, legend: 3 };
-      const catsFor = (l) => all.filter((c) => (l === 'legend' ? true : l === 'hard' ? c.lv >= 1 : c.lv <= LVN[l]) && (c.fixed || distinct(c) >= 10));
-      const cat = MF.dailyPick('g6-pyr3', lvl, catsFor, (c) => c.key);
+      const inLv = NEW
+        ? (c, l) => (l === 'legend' ? true : l === 'hard' ? c.lv === 1 || c.lv === 2 : c.lv <= LVN[l])
+        : (c, l) => (l === 'legend' ? true : l === 'hard' ? c.lv >= 1 : c.lv <= LVN[l]);
+      const catsFor = (l) => all.filter((c) => inLv(c, l) && (c.fixed || distinct(c) >= 10));
+      const cat = MF.dailyPick(NEW ? 'g6-top10' : 'g6-pyr3', lvl, catsFor, (c) => c.key);
       const items = pick(cat, lvl, MF.rng('pyr2:' + MF.today() + ':' + lvl + ':' + cat.key));
       const sorted = items.map((x, i) => i).sort((a, b) => items[b].v - items[a].v);
       const rankVal = sorted.map((i) => items[i].v);
@@ -165,7 +207,7 @@
             return h('button', {
               type: 'button', class: 'pyr-slot' + (it != null ? ' filled' : '') + (sel === k ? ' sel' : '') + (done ? (right(k) ? ' ok' : ' bad') : hintCls) + (pop === k ? ' pop' : ''),
               disabled: done, 'aria-label': (k + 1) + 'º ' + (it != null ? items[it].n : ''), onclick: () => tap(k),
-            }, h('span', { class: 'pyr-k' }, k + 1), it != null ? h('span', { class: 'pyr-name' }, MF.photo(items[it].n, items[it].nat || '', 24), items[it].n) : null,
+            }, h('span', { class: 'pyr-k' }, k + 1), it != null ? h('span', { class: 'pyr-name' }, MF.photo(items[it].n, items[it].ph || items[it].nat || '', 24), items[it].n) : null,
               done && it != null ? h('span', { class: 'pyr-val' }, fmt(items[it].v)) : null);
           })));
         });
@@ -173,7 +215,7 @@
         const c = current();
         if (!done && c != null) {
           next.appendChild(h('span', { class: 'pyr-label' }, t('next')));
-          next.appendChild(h('strong', { class: 'pyr-card pop' }, MF.photo(items[c].n, items[c].nat || '', 40), items[c].n, items[c].nat ? MF.flag(items[c].nat) : null));
+          next.appendChild(h('strong', { class: 'pyr-card pop' }, MF.photo(items[c].n, items[c].ph || items[c].nat || '', 40), items[c].n, items[c].nat ? MF.flag(items[c].nat) : null));
           if (lvl === 'easy') next.appendChild(h('span', { class: 'pill' }, t('tier') + ' ' + tierOf(c)));
         }
         if (done) next.appendChild(h('ol', { class: 'pyr-answer' }, sorted.map((i, k) => h('li', null, h('b', null, k + 1 + 'º'), ' ' + items[i].n + ' — ' + fmt(items[i].v)))));
@@ -210,9 +252,10 @@
       }
       ctx.onTimeUp = () => end();
       board.appendChild(h('div', { class: 'bar' }, h('span', { class: 'cat-title' }, title(cat)), h('span', { class: 'pill' }, t('winWith').replace('{n}', WIN)), ctx.timerEl));
+      if (cat.src) board.appendChild(h('p', { class: 'pyr-src' }, (lang === 'en' ? 'Source: ' : lang === 'es' ? 'Fuente: ' : 'Fonte: ') + cat.src));
       board.appendChild(h('div', { class: 'pyr-layout' }, pyr, h('div', { class: 'pyr-side' }, next, h('div', { class: 'row-btns' }, helpBtn, submit))));
       paint();
     },
   });
-  MF._pyrCats = categories; MF._pyrPick = pick;
+  MF._pyrCats = categories; MF._pyrPick = pick; MF._pyrTop = topCats;
 })();

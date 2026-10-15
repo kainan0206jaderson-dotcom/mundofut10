@@ -33,20 +33,26 @@
 
   // jogadores do bingo: lendas, famosos e jogadores conhecidos (nota 82+), de todas as épocas.
   // Só entra quem tem a carreira completa na base (começa até os 21 anos), para nenhum "não encaixa" ser injusto.
+  // a partir de 16/10/2026 (MF.isNew): jogadores e clubes seguem o critério do nível (ver levels.js); Lendário mantém a base
+  const NK = (lvl) => lvl + (MF.isNew() && lvl !== 'legend' ? ':n' : '');
   function pool(lvl) {
     MF._bingoPool = MF._bingoPool || {};
-    if (MF._bingoPool[lvl]) return MF._bingoPool[lvl];
+    if (MF._bingoPool[NK(lvl)]) return MF._bingoPool[NK(lvl)];
     const min = LV[lvl][1];
-    return (MF._bingoPool[lvl] = MF.data.P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && !p.natGuess && (p.r >= min || (lvl !== 'easy' && (p.legend || p.famous))) && p.st.length && p.born && p.first - p.born <= 21));
+    const NEW = MF.isNew() && lvl !== 'legend';
+    const base = MF.data.P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && !p.natGuess && p.st.length && p.born && p.first - p.born <= 21);
+    const out = NEW ? base.filter((p) => MF.playerOk(lvl, p)) : base.filter((p) => p.r >= min || (lvl !== 'easy' && (p.legend || p.famous)));
+    return (MF._bingoPool[NK(lvl)] = out);
   }
   function catalog(lvl) {
     MF._bingoCat = MF._bingoCat || {};
-    if (MF._bingoCat[lvl]) return MF._bingoCat[lvl];
+    if (MF._bingoCat[NK(lvl)]) return MF._bingoCat[NK(lvl)];
+    const NEW = MF.isNew() && lvl !== 'legend';
     const { leagues } = MF.data;
     const pl = pool(lvl);
     const cc = new Map(), nc = new Map();
     for (const p of pl) { for (const c of p.clubs) cc.set(c, (cc.get(c) || 0) + 1); nc.set(p.nat, (nc.get(p.nat) || 0) + 1); }
-    const club = [...cc].filter(([, n]) => n >= LV[lvl][2]).map(([c]) => ({ type: 'club', id: c, fit: (p) => p.clubs.includes(c) }));
+    const club = [...cc].filter(([c, n]) => n >= LV[lvl][2] && (!NEW || MF.clubOk(lvl, c))).map(([c]) => ({ type: 'club', id: c, fit: (p) => p.clubs.includes(c) }));
     const nat = [...nc].filter(([, n]) => n >= 15).map(([n]) => ({ type: 'nat', id: n, fit: (p) => p.nat === n }));
     const lg = [];
     Object.entries(leagues).forEach(([id, name]) => {
@@ -56,7 +62,7 @@
       if (pl.filter(c.fit).length >= 18) lg.push(c);
     });
     const aw = Object.fromEntries(Object.entries(AWARDS).map(([k, a]) => [k, { type: 'award', id: k, fit: a.fit }]));
-    return (MF._bingoCat[lvl] = { club, nat, lg, aw });
+    return (MF._bingoCat[NK(lvl)] = { club, nat, lg, aw });
   }
 
   // cartela + baralho do dia: as primeiras 17 cartas bastam (12 formam um encaixe perfeito, 3 não servem em nada);
@@ -102,9 +108,9 @@
     num: 7, slug: 'bingo-fut10',
     tag: () => t('noTimer') + ' ∞',
     rules: {
-      pt: ['Uma cartela com 12 casas: 7 clubes, 3 seleções, 1 liga e 1 título que se reveza a cada dia (Bola de Ouro, Copa do Mundo, Libertadores e Eurocopa). Os jogadores aparecem um por vez, com foto e nome: craques e jogadores conhecidos de várias épocas — e alguns não têm ligação nenhuma com a cartela.', 'Toque na casa em que o jogador se encaixa ou pule. Vale a carreira inteira: o clube ou a liga em qualquer época; seleção é a que ele defende. Cada jogador preenche uma casa só.', 'Sem limite de tempo e erros livres: encaixe errado não tira o jogador, tente outra casa ou pule. Preencha as 12 casas para vencer. Só jogadores de 1990 para cá.', 'Fácil: craques muito conhecidos, clubes gigantes e pulos à vontade. Normal: jogadores famosos e pulos à vontade. Difícil: mais jogadores e clubes, só 5 pulos. Lendário: só 3 pulos e mais cartas sem ligação. Com pulos limitados: se acabarem e aparecer alguém que não serve em nenhuma casa livre, o jogo termina.'],
-      en: ['A card with 12 squares: 7 clubs, 3 nations, 1 league and 1 title that rotates every day (Ballon d’Or, World Cup, Libertadores and Euro). Players appear one at a time, with photo and name: stars and well-known players from every era — and some have no link to the card at all.', 'Tap the square where the player fits or skip. The whole career counts: the club or league at any time; nation is the one he represents. Each player fills one square only.', 'No time limit and unlimited mistakes: a wrong square keeps the player, try another or skip. Fill all 12 squares to win. Only players from 1990 on.', 'Easy: very well-known stars, giant clubs and unlimited skips. Normal: famous players and unlimited skips. Hard: more players and clubs, only 5 skips. Legendary: only 3 skips and more unrelated cards. With limited skips: if they run out and a player fits no open square, the game ends.'],
-      es: ['Un cartón con 12 casillas: 7 clubes, 3 selecciones, 1 liga y 1 título que se alterna cada día (Balón de Oro, Mundial, Libertadores y Eurocopa). Los jugadores aparecen de uno en uno, con foto y nombre: cracks y jugadores conocidos de todas las épocas — y algunos no tienen relación con el cartón.', 'Toca la casilla en la que encaja el jugador o salta. Vale toda la carrera: el club o la liga en cualquier época; la selección es la que representa. Cada jugador llena una sola casilla.', 'Sin límite de tiempo y fallos libres: una casilla equivocada no quita al jugador, prueba otra o salta. Llena las 12 casillas para ganar. Solo jugadores de 1990 en adelante.', 'Fácil: cracks muy conocidos, clubes gigantes y saltos ilimitados. Normal: jugadores famosos y saltos ilimitados. Difícil: más jugadores y clubes, solo 5 saltos. Legendario: solo 3 saltos y más cartas sin relación. Con saltos limitados: si se acaban y aparece alguien que no encaja en ninguna casilla libre, el juego termina.'],
+      pt: ['Uma cartela com 12 casas: 7 clubes, 3 seleções, 1 liga e 1 título que se reveza a cada dia (Bola de Ouro, Copa do Mundo, Libertadores e Eurocopa). Os jogadores aparecem um por vez, com foto e nome: craques e jogadores conhecidos de várias épocas — e alguns não têm ligação nenhuma com a cartela.', 'Toque na casa em que o jogador se encaixa ou pule. Vale a carreira inteira: o clube ou a liga em qualquer época; seleção é a que ele defende. Cada jogador preenche uma casa só.', 'Sem limite de tempo e erros livres: encaixe errado não tira o jogador, tente outra casa ou pule. Preencha as 12 casas para vencer. Só jogadores de 1990 para cá.', 'Ajuda: uma vez por partida, destaca as casas em que o jogador da vez encaixa.', 'Fácil: craques conhecidos na mídia, clubes famosos e pulos à vontade. Normal: jogadores conhecidos das principais ligas, clubes famosos e campeões da Champions, pulos à vontade. Difícil: jogadores das principais ligas e lendas, campeões da Champions e da Europa League e clubes da 1ª divisão, só 5 pulos. Lendário: só 3 pulos e mais cartas sem ligação. Com pulos limitados: se acabarem e aparecer alguém que não serve em nenhuma casa livre, o jogo termina.'],
+      en: ['A card with 12 squares: 7 clubs, 3 nations, 1 league and 1 title that rotates every day (Ballon d’Or, World Cup, Libertadores and Euro). Players appear one at a time, with photo and name: stars and well-known players from every era — and some have no link to the card at all.', 'Tap the square where the player fits or skip. The whole career counts: the club or league at any time; nation is the one he represents. Each player fills one square only.', 'No time limit and unlimited mistakes: a wrong square keeps the player, try another or skip. Fill all 12 squares to win. Only players from 1990 on.', 'Help: once per game, highlights the squares where the current player fits.', 'Easy: media-famous stars, famous clubs and unlimited skips. Normal: well-known top-league players, famous clubs and Champions League winners, unlimited skips. Hard: top-league players and legends, Champions League and Europa League winners and top-flight clubs, only 5 skips. Legendary: only 3 skips and more unrelated cards. With limited skips: if they run out and a player fits no open square, the game ends.'],
+      es: ['Un cartón con 12 casillas: 7 clubes, 3 selecciones, 1 liga y 1 título que se alterna cada día (Balón de Oro, Mundial, Libertadores y Eurocopa). Los jugadores aparecen de uno en uno, con foto y nombre: cracks y jugadores conocidos de todas las épocas — y algunos no tienen relación con el cartón.', 'Toca la casilla en la que encaja el jugador o salta. Vale toda la carrera: el club o la liga en cualquier época; la selección es la que representa. Cada jugador llena una sola casilla.', 'Sin límite de tiempo y fallos libres: una casilla equivocada no quita al jugador, prueba otra o salta. Llena las 12 casillas para ganar. Solo jugadores de 1990 en adelante.', 'Ayuda: una vez por partida, resalta las casillas en las que encaja el jugador de turno.', 'Fácil: cracks conocidos en los medios, clubes famosos y saltos ilimitados. Normal: jugadores conocidos de las grandes ligas, clubes famosos y campeones de la Champions, saltos ilimitados. Difícil: jugadores de las grandes ligas y leyendas, campeones de la Champions y la Europa League y clubes de primera, solo 5 saltos. Legendario: solo 3 saltos y más cartas sin relación. Con saltos limitados: si se acaban y aparece alguien que no encaja en ninguna casilla libre, el juego termina.'],
     },
     options: [MF.levelOpt()],
     preview() { return h('div', { class: 'pv-grid pv-bingo' }, Array.from({ length: 12 }, (_, i) => h('b', { class: i % 5 === 0 ? 'on' : '' }))); },
@@ -114,7 +120,7 @@
       const lvl = MF.level(st);
       const SKIPS = LV[lvl][0];
       const five = SKIPS < Infinity;
-      const no = MF.dailyPick('g7-bingo4', lvl, () => [...Array(1000).keys()]);
+      const no = MF.dailyPick(MF.isNew() ? 'g7-bingo5' : 'g7-bingo4', lvl, () => [...Array(1000).keys()]);
       const awardKey = AWARD_ORDER[((MF.today() % 4) + 4) % 4];
       let B = build(no, awardKey, lvl);
       for (let k = 1; !B && k < 10; k++) B = build(no + ':' + k, awardKey, lvl);
@@ -171,8 +177,9 @@
             inner = [icon(c), h('span', { class: 'bg-cat' }, label(c)), ex ? h('span', { class: 'bg-ex' }, ex.n) : null];
           } else inner = [icon(c), h('span', { class: 'bg-cat' }, label(c))];
           const tried = !done && pi == null && st.tried.includes(i);
+          const hint = !done && pi == null && p && st.helpPi === p.i && c.fit(p);
           grid.appendChild(h('button', {
-            type: 'button', class: 'bg-cell' + (pi != null ? ' on' : '') + (pop === i ? ' pop' : '') + (bad === i ? ' bad shake' : tried ? ' bad' : '') + (done && pi == null ? ' miss' : ''),
+            type: 'button', class: 'bg-cell' + (pi != null ? ' on' : '') + (pop === i ? ' pop' : '') + (bad === i ? ' bad shake' : tried ? ' bad' : '') + (done && pi == null ? ' miss' : '') + (hint ? ' help-hit' : ''),
             disabled: done || pi != null, 'aria-label': label(c) + (pi != null ? ' · ' + P[pi].n : ''), onclick: () => place(i),
           }, inner));
         });
@@ -222,11 +229,21 @@
         st.scoreLabel = n + '/12 · ' + st.miss + ' ' + t('missesWord');
         ctx.finish(win, n, rows + '\n' + n + '/12 · ' + st.miss + ' ' + t('missesWord') + (five ? ' · ' + st.skips + '/' + SKIPS + ' ' + t('skipsWord') : ''));
         paint();
+        helpBtn.refresh();
       }
+      // ajuda única: destaca as casas livres em que o jogador da vez encaixa (ou avisa que ele não serve em nenhuma)
+      const helpBtn = MF.helpButton(ctx, () => {
+        const p = cur();
+        if (!p) return false;
+        st.helpPi = p.i;
+        paint();
+        return fitsOpen(p) ? MF.ht('fitHere', { p: p.n }) : MF.ht('noFit', { p: p.n });
+      });
       board.appendChild(h('div', { class: 'bar' }, cellPill, missPill, h('span', { class: 'pill' }, five ? SKIPS + ' ' + t('skipsWord') : t('bingoFree'))));
       board.appendChild(cardBox);
       board.appendChild(grid);
-      board.appendChild(h('div', { class: 'row-btns center' }, flag));
+      board.appendChild(h('div', { class: 'row-btns center' }, helpBtn, flag));
+      board.appendChild(helpBtn.note);
       paint();
     },
   });

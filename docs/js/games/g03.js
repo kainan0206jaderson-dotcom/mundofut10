@@ -23,8 +23,12 @@
   }
   function pools(lvl) {
     MF._w2 = MF._w2 || {};
-    if (MF._w2[lvl]) return MF._w2[lvl];
-    const [ok, lo, hi] = LV[lvl] || LV.normal;
+    const NEW = MF.isNew();
+    const ck = lvl + (NEW ? ':n' : '');
+    if (MF._w2[ck]) return MF._w2[ck];
+    const [ok0, lo, hi] = LV[lvl] || LV.normal;
+    // a partir de 16/10/2026: palavra do dia pelo critério de jogadores do nível (no Lendário, a base de sempre)
+    const ok = NEW && lvl !== 'legend' ? (p) => MF.playerOk(lvl, p, { answer: true }) : ok0;
     const words = new Map();
     for (const p of MF.data.P.slice(0, MF.CORE_N)) {
       if (!MF.era(p) || !ok(p)) continue;
@@ -35,15 +39,15 @@
       if (!words.has(w) || words.get(w).r < p.r) words.set(w, p);
     }
     const list = [...words.keys()].sort();
-    return (MF._w2[lvl] = { list, map: words });
+    return (MF._w2[ck] = { list, map: words });
   }
 
   MF.registerGame({
     num: 3, slug: 'craque-secreto', tag: () => t('wdChances'),
     rules: {
-      pt: ['Descubra o nome de guerra do jogador (como ele é conhecido no futebol, ex.: KAKÁ, ROMÁRIO, MESSI). Só jogadores de 1990 para cá.', 'Escreva qualquer palavra com o número certo de letras — vale até errar de propósito para descobrir letras. Verde: letra certa no lugar certo. Amarelo: a letra existe em outro lugar. Cinza: não está no nome. Acentos não contam.', 'Fácil: craques muito conhecidos, com seleção, posição e último clube como dica, e 6 chances. Normal: jogadores famosos, com a posição como dica, e 6 chances. Difícil: jogadores conhecidos, sem dicas, 5 chances. Lendário: qualquer jogador relevante, sem dicas, 5 chances e o teclado não mostra cores.'],
-      en: ['Find the player’s football name (how he is known, e.g. KAKÁ, ROMÁRIO, MESSI). Only players from 1990 on.', 'Type any word with the right number of letters — you can even miss on purpose to find letters. Green: right letter, right spot. Yellow: the letter is elsewhere. Grey: not in the name. Accents do not matter.', 'Easy: very well-known stars, with nation, position and last club as hints, and 6 chances. Normal: famous players, position as a hint, 6 chances. Hard: known players, no hints, 5 chances. Legendary: any relevant player, no hints, 5 chances and the keyboard shows no colours.'],
-      es: ['Descubre el nombre futbolístico del jugador (cómo se le conoce, ej.: KAKÁ, ROMÁRIO, MESSI). Solo jugadores de 1990 en adelante.', 'Escribe cualquier palabra con el número correcto de letras — vale incluso fallar a propósito para descubrir letras. Verde: letra correcta en su lugar. Amarillo: la letra está en otro lugar. Gris: no está en el nombre. Las tildes no cuentan.', 'Fácil: cracks muy conocidos, con selección, posición y último club como pista, y 6 oportunidades. Normal: jugadores famosos, la posición como pista, 6 oportunidades. Difícil: jugadores conocidos, sin pistas, 5 oportunidades. Legendario: cualquier jugador relevante, sin pistas, 5 oportunidades y el teclado no muestra colores.'],
+      pt: ['Descubra o nome de guerra do jogador (como ele é conhecido no futebol, ex.: KAKÁ, ROMÁRIO, MESSI). Só jogadores de 1990 para cá.', 'Escreva qualquer palavra com o número certo de letras — vale até errar de propósito para descobrir letras. Verde: letra certa no lugar certo. Amarelo: a letra existe em outro lugar. Cinza: não está no nome. Acentos não contam.', 'Ajuda: uma vez por partida, revela uma letra no lugar certo.', 'Fácil: craques muito conhecidos na mídia, com seleção, posição e último clube como dica, e 6 chances. Normal: jogadores conhecidos que jogam nas principais ligas, com a posição como dica, e 6 chances. Difícil: jogadores das principais ligas e lendas de 1990 para cá (sem os mais óbvios), sem dicas, 5 chances. Lendário: qualquer jogador relevante, sem dicas, 5 chances e o teclado não mostra cores.'],
+      en: ['Find the player’s football name (how he is known, e.g. KAKÁ, ROMÁRIO, MESSI). Only players from 1990 on.', 'Type any word with the right number of letters — you can even miss on purpose to find letters. Green: right letter, right spot. Yellow: the letter is elsewhere. Grey: not in the name. Accents do not matter.', 'Help: once per game, reveals one letter in the right spot.', 'Easy: stars well known in the media, with nation, position and last club as hints, and 6 chances. Normal: well-known players from the top leagues, position as a hint, 6 chances. Hard: top-league players and legends from 1990 on (no obvious picks), no hints, 5 chances. Legendary: any relevant player, no hints, 5 chances and the keyboard shows no colours.'],
+      es: ['Descubre el nombre futbolístico del jugador (cómo se le conoce, ej.: KAKÁ, ROMÁRIO, MESSI). Solo jugadores de 1990 en adelante.', 'Escribe cualquier palabra con el número correcto de letras — vale incluso fallar a propósito para descubrir letras. Verde: letra correcta en su lugar. Amarillo: la letra está en otro lugar. Gris: no está en el nombre. Las tildes no cuentan.', 'Ayuda: una vez por partida, revela una letra en su sitio.', 'Fácil: cracks muy conocidos en los medios, con selección, posición y último club como pista, y 6 oportunidades. Normal: jugadores conocidos de las grandes ligas, la posición como pista, 6 oportunidades. Difícil: jugadores de las grandes ligas y leyendas desde 1990 (sin los más obvios), sin pistas, 5 oportunidades. Legendario: cualquier jugador relevante, sin pistas, 5 oportunidades y el teclado no muestra colores.'],
     },
     options: [
       MF.levelOpt(),
@@ -56,7 +60,7 @@
     play(board, ctx) {
       const lvl = MF.level(ctx.state);
       const { list, map } = pools(lvl);
-      const word = MF.dailyPick('g3-wordle3', lvl, (l) => pools(l).list);
+      const word = MF.dailyPick(MF.isNew() ? 'g3-wordle4' : 'g3-wordle3', lvl, (l) => pools(l).list);
       const player = map.get(word);
       const L = word.length, ROWS = LV[lvl][3];
       const st = ctx.state;
@@ -124,6 +128,7 @@
         st.scoreLabel = word;
         ctx.finish(win, win ? ROWS + 1 - st.guesses.length : 0, line, { pi: player.i });
         document.removeEventListener('keydown', onKey);
+        helpBtn.refresh();
       }
       const onKey = (e) => {
         if (!document.body.contains(grid)) return document.removeEventListener('keydown', onKey);
@@ -133,11 +138,21 @@
         else if (/^[a-z]$/i.test(e.key)) press(e.key.toUpperCase());
       };
       document.addEventListener('keydown', onKey);
+      // ajuda única: revela uma letra no lugar certo (a primeira que ainda não ficou verde)
+      const helpBtn = MF.helpButton(ctx, () => {
+        const green = new Set();
+        st.guesses.forEach((g) => score(g).forEach((x, i) => { if (x === 'g') green.add(i); }));
+        const k = [...Array(L).keys()].find((i) => !green.has(i));
+        if (k == null) return false;
+        st.helpPos = k;
+        return MF.ht('letter', { n: k + 1, l: word[k] });
+      });
       board.appendChild(h('div', { class: 'bar' }, h('span', { class: 'pill' }, L + ' ' + t('letters')),
         lvl === 'easy' ? h('span', { class: 'pill' }, MF.flag(player.nat), ' ', MF.pos(player.pos), ' · ', lastClub(player)) : lvl === 'normal' ? h('span', { class: 'pill' }, MF.pos(player.pos)) : null,
         h('span', { class: 'pill' }, ROWS + ' ' + t('chancesWord')), ctx.timerEl));
       board.appendChild(grid);
       board.appendChild(kb);
+      if (!ctx.finished()) board.appendChild(h('div', { class: 'help-row' }, helpBtn, helpBtn.note));
       paint();
     },
     renderDetail(d) { return MF.playerReveal(d.pi); },

@@ -22,9 +22,9 @@
   MF.registerGame({
     num: 9, slug: 'jogo-da-distancia',
     rules: {
-      pt: ['Descubra o jogador secreto (de 1990 para cá). Cada palpite recebe uma nota de −99 a 100 conforme a proximidade.', 'Pesam seleção, posição, clubes em comum (mais ainda se foram companheiros), ligas e geração. Quanto mais perto de 100, mais quente.', 'Fácil: craques muito famosos, com a seleção como dica e os motivos de cada nota. Normal: jogadores famosos, com os motivos. Difícil: jogadores conhecidos, só a nota. Lendário: qualquer jogador relevante, só a nota e no máximo 15 palpites.'],
-      en: ['Find the secret player (from 1990 on). Each guess gets a score from −99 to 100 based on how close it is.', 'Nation, position, shared clubs (more if they were teammates), leagues and generation all count. The closer to 100, the warmer.', 'Easy: very famous stars, with the nation as a hint and the reasons for each score. Normal: famous players, with reasons. Hard: known players, score only. Legendary: any relevant player, score only and at most 15 guesses.'],
-      es: ['Descubre al jugador secreto (de 1990 en adelante). Cada intento recibe una nota de −99 a 100 según la cercanía.', 'Cuentan selección, posición, clubes en común (más si fueron compañeros), ligas y generación. Cuanto más cerca de 100, más caliente.', 'Fácil: cracks muy famosos, con la selección como pista y los motivos de cada nota. Normal: jugadores famosos, con los motivos. Difícil: jugadores conocidos, solo la nota. Legendario: cualquier jugador relevante, solo la nota y como máximo 15 intentos.'],
+      pt: ['Descubra o jogador secreto (de 1990 para cá). Cada palpite recebe uma nota de −99 a 100 conforme a proximidade.', 'Pesam seleção, posição, clubes em comum (mais ainda se foram companheiros), ligas e geração. Quanto mais perto de 100, mais quente.', 'Dica em todos os níveis: cada palpite mostra os motivos da nota (mesma seleção, posição, clube, companheiros, liga, geração).', 'Fácil: craques conhecidos na mídia, com a seleção como dica. Normal: jogadores conhecidos das principais ligas. Difícil: jogadores das principais ligas e lendas de 1990 para cá (sem os mais óbvios). Lendário: qualquer jogador relevante e no máximo 15 palpites.'],
+      en: ['Find the secret player (from 1990 on). Each guess gets a score from −99 to 100 based on how close it is.', 'Nation, position, shared clubs (more if they were teammates), leagues and generation all count. The closer to 100, the warmer.', 'Hint at every level: each guess shows the reasons behind its score (same nation, position, club, teammates, league, generation).', 'Easy: media-famous stars, with the nation as a hint. Normal: well-known top-league players. Hard: top-league players and legends from 1990 on (no obvious picks). Legendary: any relevant player and at most 15 guesses.'],
+      es: ['Descubre al jugador secreto (de 1990 en adelante). Cada intento recibe una nota de −99 a 100 según la cercanía.', 'Cuentan selección, posición, clubes en común (más si fueron compañeros), ligas y generación. Cuanto más cerca de 100, más caliente.', 'Pista en todos los niveles: cada intento muestra los motivos de la nota (misma selección, posición, club, compañeros, liga, generación).', 'Fácil: cracks conocidos en los medios, con la selección como pista. Normal: jugadores conocidos de las grandes ligas. Difícil: jugadores de las grandes ligas y leyendas desde 1990 (sin los más obvios). Legendario: cualquier jugador relevante y como máximo 15 intentos.'],
     },
     options: [MF.levelOpt(), MF.timerOpt([0, 300, 180])],
     preview() { return h('div', { class: 'pv-dist' }, [92, 46, -12].map((v) => h('span', null, h('b', { style: { width: (v + 100) / 2 + '%' } }), v))); },
@@ -35,10 +35,16 @@
       const MINS = { easy: 88, normal: 84, hard: 80, legend: 76 };
       const MIN = MINS[lvl];
       const MAX_G = lvl === 'legend' ? 15 : Infinity;
-      const poolFor = (l) => P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && p.r >= MINS[l] && (l !== 'easy' || p.famous) && p.st.length >= 2 && !p.natGuess).map((p) => p.i);
-      const target = P[MF.dailyPick('g9-dist3', lvl, poolFor)];
+      const NEW = MF.isNew();
+      const base = (l) => P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && p.st.length >= 2 && !p.natGuess);
+      // a partir de 16/10/2026: o jogador secreto segue o critério do nível (Difícil sem os óbvios); Lendário mantém a base
+      const poolFor = NEW
+        ? (l) => (l === 'legend' ? base(l).filter((p) => p.r >= MINS[l]) : base(l).filter((p) => MF.playerOk(l, p, { answer: true }))).map((p) => p.i)
+        : (l) => base(l).filter((p) => p.r >= MINS[l] && (l !== 'easy' || p.famous)).map((p) => p.i);
+      const target = P[MF.dailyPick(NEW ? 'g9-dist4' : 'g9-dist3', lvl, poolFor)];
       const tm = MF.teammates(target.i);
-      const why = lvl === 'easy' || lvl === 'normal';
+      // os motivos de cada nota (mesma seleção, posição, clube, companheiros, liga, geração) voltam a aparecer em todos os níveis
+      const why = true;
       st.guesses = st.guesses || [];
       const list = h('ol', { class: 'dist-list' });
       const left = h('span', { class: 'pill' });
