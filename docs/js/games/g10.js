@@ -5,8 +5,9 @@
    seleção ou mesma liga; vermelho = nada em comum. Jogador fora da posição perde química.
    Pontuação draft = nota do time + química (até 100). Notas MUNDOFUT: calculadas a partir de valor de mercado, seleção,
    anos em grandes ligas e prêmios (não são notas de videogame).
-   Dificuldade: Fácil = gigantes do futebol e 3 trocas de clube; Normal = clubes conhecidos e 2 trocas; Difícil = clubes médios
-   e 1 troca; Lendário = clubes menores, sem trocas. */
+   Dificuldade (desde 15/10/2026): Fácil = clubes famosos e 3 trocas; Normal = famosos + campeões da Champions, 2 trocas;
+   Difícil = campeões da Champions e da Europa League + clubes conhecidos da 1ª divisão, 1 troca; Lendário = clubes menores, sem trocas.
+   Busca sem ajuda: aparecem todos os jogadores da base; escolher quem nunca jogou no clube da rodada = 1 erro (3 erros = fim). */
 (function () {
   'use strict';
   const MF = window.MF, h = MF.h, t = (k) => MF.t(k);
@@ -40,8 +41,9 @@
   const line = (pos) => MF.line(pos);
 
   // clubes sorteáveis por dificuldade: quantidade de jogadores relevantes que passaram por ele (base principal)
+  // 15/10/2026: no Draft os critérios novos já valem hoje (pedido do usuário), não só a partir de 16/10
   function clubPools() {
-    const NEW = MF.isNew();
+    const NEW = true;
     if (MF._draftClubs && MF._draftClubs.NEW === NEW) return MF._draftClubs;
     const { P, clubs, byClub } = MF.data;
     const score = clubs.map((c) => {
@@ -106,9 +108,9 @@
   MF.registerGame({
     num: 10, slug: 'draft-club',
     rules: {
-      pt: ['Escolha 1 de 5 formações. Em cada rodada um clube é sorteado: toque na posição que quiser e escolha qualquer jogador que já passou por esse clube — lenda ou atual.', 'As linhas entre vizinhos mostram a química: verde = já jogaram num mesmo clube, ou mesma seleção e mesma liga; laranja = mesma seleção ou mesma liga; vermelho = nada em comum. Fora da posição, o jogador perde química. Toque num jogador escalado e depois noutra posição para trocá-los.', 'Pontuação draft = nota do time + química (até 100). As notas são do MUNDOFUT10 (valor de mercado, seleção, anos em grandes ligas e prêmios).', 'Fácil: só clubes famosos e 3 trocas de clube. Normal: os famosos e os campeões da Champions, 2 trocas. Difícil: campeões da Champions e da Europa League e clubes da 1ª divisão, 1 troca. Lendário: clubes menores e nenhuma troca. Vence quem completar os 11. Ajuda: uma vez por partida, sugere um jogador do clube da rodada.'],
-      en: ['Pick 1 of 5 formations. Each round a club is drawn: tap the position you want and pick any player who ever played for that club — legend or current.', 'Lines between neighbours show chemistry: green = they shared a club, or same nation and league; orange = same nation or league; red = nothing in common. Out of position, a player loses chemistry. Tap a player, then another position, to swap them.', 'Draft score = team rating + chemistry (up to 100). Ratings are MUNDOFUT10’s own (market value, caps, years in big leagues and awards).', 'Easy: famous clubs only and 3 club rerolls. Normal: the famous ones plus Champions League winners, 2 rerolls. Hard: Champions League and Europa League winners and top-flight clubs, 1 reroll. Legendary: smaller clubs and no rerolls. Complete the XI to win. Help: once per game, suggests a player from the club of the round.'],
-      es: ['Elige 1 de 5 formaciones. En cada ronda se sortea un club: toca la posición que quieras y elige a cualquier jugador que haya pasado por ese club — leyenda o actual.', 'Las líneas entre vecinos muestran la química: verde = compartieron club, o misma selección y liga; naranja = misma selección o liga; rojo = nada en común. Fuera de posición, el jugador pierde química. Toca un jugador y luego otra posición para cambiarlos.', 'Puntuación draft = media del equipo + química (hasta 100). Las medias son de MUNDOFUT10 (valor de mercado, selección, años en grandes ligas y premios).', 'Fácil: solo clubes famosos y 3 cambios de club. Normal: los famosos y los campeones de la Champions, 2 cambios. Difícil: campeones de la Champions y la Europa League y clubes de primera, 1 cambio. Legendario: clubes más pequeños y sin cambios. Completa el once para ganar. Ayuda: una vez por partida, sugiere un jugador del club de la ronda.'],
+      pt: ['Escolha 1 de 5 formações. Em cada rodada um clube é sorteado: toque na posição que quiser e digite um jogador que já passou por esse clube — lenda ou atual. A busca mostra todos os jogadores da base: se escolher alguém que nunca jogou no clube, conta 1 erro; no 3º erro o draft acaba.', 'As linhas entre vizinhos mostram a química: verde = já jogaram num mesmo clube, ou mesma seleção e mesma liga; laranja = mesma seleção ou mesma liga; vermelho = nada em comum. Fora da posição, o jogador perde química. Toque num jogador escalado e depois noutra posição para trocá-los.', 'Pontuação draft = nota do time + química (até 100). As notas são do MUNDOFUT10 (valor de mercado, seleção, anos em grandes ligas e prêmios).', 'Fácil: só clubes famosos e 3 trocas de clube. Normal: os famosos e os campeões da Champions, 2 trocas. Difícil: campeões da Champions e da Europa League e clubes conhecidos da 1ª divisão, 1 troca. Lendário: clubes menores e nenhuma troca. Vence quem completar os 11. Ajuda: uma vez por partida, sugere um jogador do clube da rodada.'],
+      en: ['Pick 1 of 5 formations. Each round a club is drawn: tap the position you want and type a player who ever played for that club — legend or current. The search lists every player in the database: picking someone who never played there is a miss; 3 misses end the draft.', 'Lines between neighbours show chemistry: green = they shared a club, or same nation and league; orange = same nation or league; red = nothing in common. Out of position, a player loses chemistry. Tap a player, then another position, to swap them.', 'Draft score = team rating + chemistry (up to 100). Ratings are MUNDOFUT10’s own (market value, caps, years in big leagues and awards).', 'Easy: famous clubs only and 3 club rerolls. Normal: the famous ones plus Champions League winners, 2 rerolls. Hard: Champions League and Europa League winners and well-known top-flight clubs, 1 reroll. Legendary: smaller clubs and no rerolls. Complete the XI to win. Help: once per game, suggests a player from the club of the round.'],
+      es: ['Elige 1 de 5 formaciones. En cada ronda se sortea un club: toca la posición que quieras y escribe un jugador que haya pasado por ese club — leyenda o actual. La búsqueda muestra a todos los jugadores de la base: si eliges a alguien que nunca jugó allí, cuenta 1 error; con 3 errores termina el draft.', 'Las líneas entre vecinos muestran la química: verde = compartieron club, o misma selección y liga; naranja = misma selección o liga; rojo = nada en común. Fuera de posición, el jugador pierde química. Toca un jugador y luego otra posición para cambiarlos.', 'Puntuación draft = media del equipo + química (hasta 100). Las medias son de MUNDOFUT10 (valor de mercado, selección, años en grandes ligas y premios).', 'Fácil: solo clubes famosos y 3 cambios de club. Normal: los famosos y los campeones de la Champions, 2 cambios. Difícil: campeones de la Champions y la Europa League y clubes conocidos de primera, 1 cambio. Legendario: clubes más pequeños y sin cambios. Completa el once para ganar. Ayuda: una vez por partida, sugiere un jugador del club de la ronda.'],
     },
     options: [MF.levelOpt(), MF.timerOpt([0, 300, 180, 120])],
     preview() { return h('div', { class: 'pv-draft' }, FORMS['4-3-3'].s.map(([, x, y]) => h('b', { style: { left: x + '%', top: y + '%' } }))); },
@@ -143,8 +145,9 @@
     const st = ctx.state;
     const lvl = MF.level(st);
     const day = MF.today();
-    const seed = (MF.isNew() ? 'fd4:' : 'fd3:') + day + ':' + lvl;
-    if (st.v !== 3) Object.assign(st, { v: 3, phase: 'form', form: null, forms: null, team: Array(11).fill(null), from: Array(11).fill(null), round: 0, rerolls: 0, drawn: [] });
+    const seed = 'fd5:' + day + ':' + lvl;
+    if (st.v !== 4) Object.assign(st, { v: 4, phase: 'form', form: null, forms: null, team: Array(11).fill(null), from: Array(11).fill(null), round: 0, rerolls: 0, drawn: [], miss: 0, wrong: [] });
+    if (st.miss == null) { st.miss = 0; st.wrong = []; }
     if (!st.forms) st.forms = MF.sample(Object.keys(FORMS), 5, MF.rng(seed + ':forms'));
     const pools = clubPools();
     const pool = pools[lvl] || pools.normal;
@@ -165,20 +168,24 @@
     const finishBtn = h('button', { class: 'btn btn-primary fd-finish', type: 'button', onclick: () => end(true) }, t('fdFinish'));
     const flag = h('button', { class: 'btn btn-ghost flag-btn', type: 'button', 'aria-label': t('giveUp'), title: t('giveUp'), onclick: () => end(false) }, MF.icon('flag'));
     const used = () => new Set(st.team.filter((x) => x != null));
-    // busca: qualquer jogador (base principal + estendida) que passou pelo clube da rodada
+    // busca: TODOS os jogadores da base (principal + estendida), sem dica de quem passou pelo clube — o jogador decide.
+    // Errou (o escolhido nunca jogou no clube da rodada)? Conta 1 erro; no 3º erro o draft acaba.
+    const MAXMISS = 3;
     const ac = MF.autocomplete({
       placeholder: t('fdTypeFrom'),
       source: (q) => {
-        const c = curClub();
         const u = used();
-        return MF.searchPlayers(q, 8, (i) => !u.has(i) && P[i].clubs.includes(c)).map((i) => {
-          const p = P[i];
-          const ys = p.st.filter((s) => s[0] === c).map((s) => (s[1] === s[2] ? s[1] : s[1] + '–' + s[2])).join(', ');
-          return { id: i, label: p.n, sub: MF.pos(p.pos) + ' · ' + ys, flag: p.nat };
-        });
+        return MF.searchPlayers(q, 8, (i) => !u.has(i)).map((i) => ({ id: i, label: P[i].n, sub: MF.pos(P[i].pos), flag: P[i].nat }));
       },
       onPick: (it) => choose(it.id),
     });
+    const playedHere = (pi, c) => {
+      if (MF.playedFor(pi, c)) return true;
+      const k = MF.canon && MF.canon[pi];
+      return k != null && k !== pi && MF.playedFor(k, c);
+    };
+    const NF = { pt: '{p} nunca jogou no {c}.', en: '{p} never played for {c}.', es: '{p} nunca jugó en el {c}.' };
+    const missPill = h('span', { class: 'pill' });
 
     // ajuda única: sugere um jogador conhecido do clube da rodada para uma posição livre
     const helpBtn = MF.helpButton(ctx, () => {
@@ -218,6 +225,16 @@
     function choose(pi) {
       if (ctx.finished() || st.phase !== 'xi') return;
       const p = P[pi];
+      if (!playedHere(pi, curClub())) {
+        st.miss++;
+        st.wrong.push(pi);
+        MF.toast((NF[MF.lang] || NF.pt).replace('{p}', p.n).replace('{c}', clubs[curClub()].n));
+        ctx.save();
+        if (st.miss >= MAXMISS) return end(false);
+        paint();
+        setTimeout(() => ac.focus && ac.focus(), 50);
+        return;
+      }
       let k = target;
       if (k == null || st.team[k] != null) {
         // sem posição escolhida: a primeira vaga livre da posição dele (ou da mesma linha)
@@ -262,6 +279,8 @@
       const r = st.form ? rate(st.team, st.form) : null;
       const nFilled = st.team.filter((x) => x != null).length;
       stepPill.textContent = st.phase === 'form' ? t('fdForm') : t('fdStep') + ' ' + nFilled + '/11';
+      missPill.textContent = t('misses') + ': ' + st.miss + '/' + MAXMISS;
+      missPill.classList.toggle('hot', st.miss > 0);
       MF.clear(pitch);
       pitch.insertAdjacentHTML('beforeend', PITCH_SVG);
       const f = F() || FORMS[st.forms[0]];
@@ -324,7 +343,7 @@
     ctx.onTimeUp = () => end(false);
     // a base completa (todos os jogadores do Transfermarkt) chega em segundo plano
     MF.loadExt && MF.loadExt();
-    board.appendChild(h('div', { class: 'bar' }, stepPill, ctx.timerEl));
+    board.appendChild(h('div', { class: 'bar' }, stepPill, missPill, ctx.timerEl));
     board.appendChild(h('div', { class: 'draft-layout fd-layout' }, pitch, side));
     board.appendChild(sheet);
     paint();

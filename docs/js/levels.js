@@ -4,7 +4,8 @@
    CLUBES
    - Fácil:   só clubes conhecidos, famosos e principais do esporte;
    - Normal:  campeões da Champions League + os clubes do Fácil;
-   - Difícil: campeões da Champions, campeões da Europa League (Copa da UEFA) e clubes que estão na 1ª divisão em 2026/27;
+   - Difícil: campeões da Champions, campeões da Europa League (Copa da UEFA) e clubes conhecidos que estão na 1ª divisão em 2026/27
+              (sem time desconhecido: recém-promovidos e clubes pequenos ficam de fora);
    - Lendário: a base de cada jogo (o mais difícil possível).
 
    JOGADORES
@@ -26,14 +27,25 @@
 
   let S = null;
   function sets() {
-    if (S) return S;
+    if (S && S.ready) return S;
     const L = (MF.data && MF.data.games && MF.data.games.levels) || {};
     const set = (k) => new Set(L[k] || []);
     const famous = set('famous'), ucl = set('ucl'), uel = set('uel'), top = set('top');
     const union = (...a) => { const s = new Set(); a.forEach((x) => x.forEach((v) => s.add(v))); return s; };
+    // Difícil sem time desconhecido (15/10/2026): dos clubes da 1ª divisão, só os que têm muitos jogadores relevantes na base
+    // (30+ com nota 78+; no Brasil e na Argentina, 15+). Fica de fora quem ninguém conhece (recém-promovidos, Arábia menor etc.).
+    const topKnown = new Set();
+    if (MF.data && MF.data.byClub) {
+      const { P, clubs, byClub } = MF.data;
+      for (const c of top) {
+        const g = (byClub[c] || []).filter((i) => P[i].r >= 78).length;
+        const sa = clubs[c] && (clubs[c].cty === 'Brazil' || clubs[c].cty === 'Argentina');
+        if (g >= 30 || (sa && g >= 15)) topKnown.add(c);
+      }
+    }
     S = {
-      famous, ucl, uel, top, now: set('now'),
-      club: { easy: famous, normal: union(famous, ucl), hard: union(ucl, uel, top), legend: null },
+      ready: !!(MF.data && MF.data.byClub), famous, ucl, uel, top, topKnown, now: set('now'),
+      club: { easy: famous, normal: union(famous, ucl), hard: union(famous, ucl, uel, topKnown), legend: null },
     };
     return S;
   }
