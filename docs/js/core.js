@@ -63,12 +63,15 @@
    * Item do dia sem repetição: percorre uma permutação do conjunto; só repete
    * depois que todas as possibilidades foram usadas (novo ciclo = nova permutação).
    */
+  // 15/10/2026 (dia 3): desafios do dia sorteados de novo e progresso do dia zerado (testes da manhã).
+  // Os dias anteriores continuam iguais no histórico; daqui em diante a fila segue a partir do novo sorteio.
+  MF.RESEED = 3;
   MF.daily = (gameKey, n, day) => {
     if (!n) return -1;
     const d = day == null ? MF.today() : day;
     const k = ((d % n) + n) % n;
     const cycle = Math.floor(d / n);
-    const order = MF.shuffle([...Array(n).keys()], MF.rng(gameKey + ':ciclo:' + cycle));
+    const order = MF.shuffle([...Array(n).keys()], MF.rng(gameKey + (d >= MF.RESEED ? ':r3' : '') + ':ciclo:' + cycle));
     return order[k];
   };
   /**
@@ -99,6 +102,10 @@
             s.cycle++; s.pos = 0;
             s.order = MF.shuffle([...Array(s.n).keys()], MF.rng(gameKey + ':' + s.l + ':ciclo:' + s.cycle));
           }
+          if (d === MF.RESEED && s.pos < s.n) {   // novo sorteio do resto da fila (sem repetir o que já saiu)
+            const rest = MF.shuffle(s.order.slice(s.pos), MF.rng(gameKey + ':' + s.l + ':r3'));
+            for (let k = 0; k < rest.length; k++) s.order[s.pos + k] = rest[k];
+          }
           // primeiro item da fila cuja resposta não saiu (em nível nenhum) nos últimos R dias
           let best = -1, bestAge = -1;
           for (let k = s.pos; k < s.n; k++) {
@@ -118,7 +125,7 @@
     const r = MF._dp[ck];
     return r[lvl] !== undefined ? r[lvl] : r.normal;
   };
-  MF.dayRng = (gameKey, extra) => MF.rng(gameKey + ':dia:' + MF.today() + ':' + (extra || ''));
+  MF.dayRng = (gameKey, extra) => MF.rng(gameKey + ':dia:' + MF.today() + (MF.today() >= MF.RESEED ? ':r3' : '') + ':' + (extra || ''));
 
   // ------------------------------------------------------------------ armazenamento local
   const LS = 'mf10:';
@@ -129,8 +136,9 @@
 
   // estado do jogo do dia — um por dificuldade (cada dificuldade pode ser jogada uma vez por dia)
   MF.LEVELS = ['easy', 'normal', 'hard', 'legend'];
-  MF.dayState = (game, lvl) => MF.load('d2:' + game + ':' + (lvl || 'normal') + ':' + MF.today(), null);
-  MF.saveDayState = (game, st) => MF.save('d2:' + game + ':' + ((st && st.opts && st.opts.mode) || 'normal') + ':' + MF.today(), st);
+  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith(LS + 'd2:')) localStorage.removeItem(k); } } catch (e) { /* sem armazenamento */ }
+  MF.dayState = (game, lvl) => MF.load('d3:' + game + ':' + (lvl || 'normal') + ':' + MF.today(), null);
+  MF.saveDayState = (game, st) => MF.save('d3:' + game + ':' + ((st && st.opts && st.opts.mode) || 'normal') + ':' + MF.today(), st);
   MF.dayStates = (game) => {
     const out = {};
     for (const l of MF.LEVELS) { const s = MF.dayState(game, l); if (s) out[l] = s; }
