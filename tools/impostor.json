@@ -1,0 +1,398 @@
+[
+ {
+  "k": "s50",
+  "lv": 0,
+  "near": "att",
+  "src": "Transfermarkt · out/2026",
+  "t": [
+   "Fizeram 50 gols ou mais numa temporada (todas as competições)",
+   "Scored 50+ goals in a single season (all competitions)",
+   "Marcaron 50 goles o más en una temporada (todas las competiciones)"
+  ],
+  "it": [
+   "Lionel Messi",
+   "Cristiano Ronaldo",
+   "Luis Suárez",
+   "Robert Lewandowski",
+   "Erling Haaland",
+   "Viktor Gyökeres"
+  ],
+  "avoid": [
+   "Harry Kane",
+   "Kylian Mbappé",
+   "Jardel",
+   "Romário"
+  ]
+ },
+ {
+  "k": "pl30",
+  "lv": 1,
+  "near": "att",
+  "league": 13,
+  "src": "Premier League · 1992/93–2024/25",
+  "t": [
+   "Fizeram 30 gols ou mais numa temporada de Premier League",
+   "Scored 30+ goals in a Premier League season",
+   "Marcaron 30 goles o más en una temporada de Premier League"
+  ],
+  "it": [
+   "Erling Haaland",
+   "Mohamed Salah",
+   "Alan Shearer",
+   "Andy Cole",
+   "Luis Suárez",
+   "Cristiano Ronaldo",
+   "Robin van Persie",
+   "Harry Kane",
+   "Thierry Henry",
+   "Kevin Phillips"
+  ]
+ },
+ {
+  "k": "boot",
+  "lv": 1,
+  "near": "att",
+  "src": "ESM (Chuteira de Ouro) · 1997–2025",
+  "t": [
+   "Ganharam a Chuteira de Ouro europeia (1997–2025)",
+   "European Golden Shoe winners (1997–2025)",
+   "Ganaron la Bota de Oro europea (1997–2025)"
+  ],
+  "it": [
+   "Ronaldo",
+   "Nikolaos Machlas",
+   "Jardel",
+   "Kevin Phillips",
+   "Henrik Larsson",
+   "Roy Makaay",
+   "Thierry Henry",
+   "Diego Forlán",
+   "Luca Toni",
+   "Francesco Totti",
+   "Cristiano Ronaldo",
+   "Lionel Messi",
+   "Luis Suárez",
+   "Ciro Immobile",
+   "Robert Lewandowski",
+   "Erling Haaland",
+   "Harry Kane",
+   "Kylian Mbappé"
+  ]
+ },
+ {
+  "k": "plboot",
+  "lv": 1,
+  "near": "att",
+  "league": 13,
+  "src": "Premier League · 1992/93–2024/25",
+  "t": [
+   "Foram artilheiros de uma Premier League (1992/93–2024/25)",
+   "Premier League Golden Boot winners (1992/93–2024/25)",
+   "Fueron máximos goleadores de una Premier League (1992/93–2024/25)"
+  ],
+  "it": [
+   "Teddy Sheringham",
+   "Andy Cole",
+   "Alan Shearer",
+   "Dion Dublin",
+   "Michael Owen",
+   "Chris Sutton",
+   "Jimmy Floyd Hasselbaink",
+   "Dwight Yorke",
+   "Kevin Phillips",
+   "Thierry Henry",
+   "Ruud van Nistelrooy",
+   "Didier Drogba",
+   "Cristiano Ronaldo",
+   "Nicolas Anelka",
+   "Dimitar Berbatov",
+   "Carlos Tevez",
+   "Robin van Persie",
+   "Luis Suárez",
+   "Sergio Agüero",
+   "Harry Kane",
+   "Mohamed Salah",
+   "Sadio Mané",
+   "Pierre-Emerick Aubameyang",
+   "Jamie Vardy",
+   "Son Heung-min",
+   "Erling Haaland"
+  ]
+ },
+ {
+  "k": "pichichi",
+  "lv": 1,
+  "near": "att",
+  "league": 53,
+  "src": "LaLiga (Pichichi) · 1990–2025",
+  "t": [
+   "Foram artilheiros de LaLiga — Pichichi (1990–2025)",
+   "LaLiga top scorers — Pichichi (1990–2025)",
+   "Pichichi de LaLiga (1990–2025)"
+  ],
+  "it": [
+   "Hugo Sánchez",
+   "Emilio Butragueño",
+   "Bebeto",
+   "Romário",
+   "Iván Zamorano",
+   "Juan Antonio Pizzi",
+   "Ronaldo",
+   "Christian Vieri",
+   "Raúl",
+   "Salva Ballesta",
+   "Diego Tristán",
+   "Roy Makaay",
+   "Diego Forlán",
+   "Samuel Eto'o",
+   "Ruud van Nistelrooy",
+   "Dani Güiza",
+   "Lionel Messi",
+   "Cristiano Ronaldo",
+   "Luis Suárez",
+   "Karim Benzema",
+   "Robert Lewandowski",
+   "Artem Dovbyk",
+   "Kylian Mbappé"
+  ],
+  "avoid": [
+   "Manolo"
+  ]
+ },
+ {
+  "k": "capo",
+  "lv": 2,
+  "near": "att",
+  "league": 31,
+  "src": "Serie A (Capocannoniere) · 1990–2025",
+  "t": [
+   "Foram artilheiros da Serie A — Capocannoniere (1990–2025)",
+   "Serie A top scorers — Capocannoniere (1990–2025)",
+   "Máximos goleadores de la Serie A — Capocannoniere (1990–2025)"
+  ],
+  "it": [
+   "Marco van Basten",
+   "Gianluca Vialli",
+   "Giuseppe Signori",
+   "Gabriel Batistuta",
+   "Igor Protti",
+   "Filippo Inzaghi",
+   "Oliver Bierhoff",
+   "Márcio Amoroso",
+   "Andriy Shevchenko",
+   "Hernán Crespo",
+   "David Trezeguet",
+   "Dario Hübner",
+   "Christian Vieri",
+   "Cristiano Lucarelli",
+   "Luca Toni",
+   "Francesco Totti",
+   "Alessandro Del Piero",
+   "Zlatan Ibrahimović",
+   "Antonio Di Natale",
+   "Edinson Cavani",
+   "Ciro Immobile",
+   "Mauro Icardi",
+   "Gonzalo Higuaín",
+   "Edin Džeko",
+   "Fabio Quagliarella",
+   "Cristiano Ronaldo",
+   "Victor Osimhen",
+   "Lautaro Martínez",
+   "Mateo Retegui"
+  ]
+ },
+ {
+  "k": "bunde",
+  "lv": 2,
+  "near": "att",
+  "league": 19,
+  "src": "Bundesliga (Torjägerkanone) · 1990–2025",
+  "t": [
+   "Foram artilheiros da Bundesliga (1990–2025)",
+   "Bundesliga top scorers (1990–2025)",
+   "Máximos goleadores de la Bundesliga (1990–2025)"
+  ],
+  "it": [
+   "Roland Wohlfarth",
+   "Ulf Kirsten",
+   "Anthony Yeboah",
+   "Stefan Kuntz",
+   "Mario Basler",
+   "Heiko Herrlich",
+   "Fredi Bobic",
+   "Michael Preetz",
+   "Sergej Barbarez",
+   "Ebbe Sand",
+   "Márcio Amoroso",
+   "Giovane Élber",
+   "Ailton",
+   "Marek Mintál",
+   "Miroslav Klose",
+   "Theofanis Gekas",
+   "Luca Toni",
+   "Grafite",
+   "Edin Džeko",
+   "Mario Gómez",
+   "Klaas-Jan Huntelaar",
+   "Stefan Kießling",
+   "Robert Lewandowski",
+   "Alexander Meier",
+   "Pierre-Emerick Aubameyang",
+   "Niclas Füllkrug",
+   "Christopher Nkunku",
+   "Harry Kane",
+   "Martin Max",
+   "Thomas Christiansen",
+   "Jørn Andersen",
+   "Fritz Walter"
+  ]
+ },
+ {
+  "k": "ucl5",
+  "lv": 0,
+  "near": "ucl4",
+  "src": "UEFA · até 2024/25",
+  "t": [
+   "Ganharam a Champions League 5 vezes ou mais (até 2025)",
+   "Won the Champions League 5+ times (up to 2025)",
+   "Ganaron la Champions League 5 veces o más (hasta 2025)"
+  ],
+  "it": [
+   "Cristiano Ronaldo",
+   "Luka Modrić",
+   "Toni Kroos",
+   "Daniel Carvajal",
+   "Nacho",
+   "Karim Benzema",
+   "Gareth Bale",
+   "Marcelo",
+   "Isco",
+   "Casemiro",
+   "Lucas Vázquez",
+   "Paolo Maldini"
+  ],
+  "near_it": [
+   "Lionel Messi",
+   "Andrés Iniesta",
+   "Xavi",
+   "Gerard Piqué",
+   "Sergio Ramos",
+   "Raphaël Varane",
+   "Clarence Seedorf",
+   "Sergio Busquets",
+   "Iker Casillas",
+   "Vinícius Júnior",
+   "Federico Valverde",
+   "Thibaut Courtois",
+   "Kylian Mbappé",
+   "Jude Bellingham"
+  ],
+  "avoid": [
+   "Rodrygo",
+   "David Alaba"
+  ]
+ },
+ {
+  "k": "ucl2c",
+  "lv": 2,
+  "near": "ucl4",
+  "src": "UEFA e CONMEBOL · até 2025",
+  "t": [
+   "Ganharam a Champions League por dois clubes diferentes (desde 1990)",
+   "Won the Champions League with two different clubs (since 1990)",
+   "Ganaron la Champions League con dos clubes distintos (desde 1990)"
+  ],
+  "it": [
+   "Clarence Seedorf",
+   "Cristiano Ronaldo",
+   "Toni Kroos",
+   "Gerard Piqué",
+   "Samuel Eto'o",
+   "Marcel Desailly",
+   "Didier Deschamps",
+   "Xabi Alonso",
+   "Owen Hargreaves",
+   "Christian Panucci",
+   "Paulo Sousa",
+   "Mateo Kovačić",
+   "Antonio Rüdiger",
+   "Edwin van der Sar",
+   "Frank Rijkaard"
+  ],
+  "near_it": [
+   "Zlatan Ibrahimović",
+   "Lionel Messi",
+   "Sergio Ramos",
+   "Dani Alves",
+   "Andrea Pirlo",
+   "Arjen Robben",
+   "Wesley Sneijder",
+   "Luka Modrić",
+   "Karim Benzema",
+   "Neymar",
+   "Ronaldinho",
+   "Kaká",
+   "Fernando Torres",
+   "Didier Drogba",
+   "Frank Lampard"
+  ],
+  "avoid": [
+   "Thiago Alcântara",
+   "Fernando Redondo",
+   "Vladimir Jugović",
+   "Juan Pablo Sorín",
+   "Kingsley Coman",
+   "Mario Mandžukić",
+   "Alessandro Nesta",
+   "Patrick Kluivert",
+   "Edgar Davids",
+   "Marc Overmars"
+  ]
+ },
+ {
+  "k": "libucl",
+  "lv": 2,
+  "near": "sa",
+  "src": "UEFA e CONMEBOL · até 2025",
+  "t": [
+   "Ganharam a Libertadores e a Champions League",
+   "Won both the Copa Libertadores and the Champions League",
+   "Ganaron la Libertadores y la Champions League"
+  ],
+  "it": [
+   "Cafu",
+   "Roque Júnior",
+   "Dida",
+   "Ronaldinho",
+   "Neymar",
+   "Carlos Tevez",
+   "Walter Samuel",
+   "Danilo",
+   "Rafinha",
+   "David Luiz",
+   "Marcelo"
+  ],
+  "near_it": [
+   "Filipe Luís",
+   "Arturo Vidal",
+   "Kaká",
+   "Ronaldo",
+   "Rivaldo",
+   "Gabriel Barbosa",
+   "Juan Román Riquelme",
+   "Javier Zanetti",
+   "Thiago Silva",
+   "Dani Alves",
+   "Roberto Carlos",
+   "Diego Simeone",
+   "Lucas Leiva"
+  ],
+  "avoid": [
+   "Juan Pablo Sorín",
+   "Edmílson",
+   "Júlio César",
+   "Diego Alves"
+  ]
+ }
+]

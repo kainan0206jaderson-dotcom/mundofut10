@@ -83,9 +83,12 @@
     const cats = [];
     const linkP = (name, nat) => { const p = MF.resolvePlayer(name); return p && (!nat || p.nat === nat) ? p : null; };
     for (const c of games.tops || []) {
+      const ck = c.club ? MF.norm(c.club) : null;
+      const ci = ck ? (MF.data.clubs.find((x) => MF.norm(x.n) === ck) || {}).i : null;
       const items = c.it.map(([n, v, nat]) => {
         const na = nat || c.nat || '';
-        const p = linkP(n, na);
+        let p = linkP(n, na);
+        if (p && ci != null && !p.clubs.includes(ci)) p = null; // homônimo que nunca jogou no clube (ex.: Dida do Flamengo x goleiro Dida)
         return { n, v, nat: na, pi: p ? p.i : -1, ph: c.club ? na + ' ' + c.club : na };
       });
       cats.push({ key: 't-' + c.k, lv: c.lv, fixed: true, src: c.src, title: { pt: c.t[0], en: c.t[1], es: c.t[2] }, unit: U[c.u] || U2[c.u] || U.gols, items: items.slice(0, 10) });

@@ -23,15 +23,26 @@
       .sort((a, b) => score(b) - score(a));
     return (MF._ondeLeg = out);
   }
+  // Difícil (desde 16/10/2026, pedido do usuário): lendas que jogaram entre 1990 e 2010 + os aposentados recentes (pararam de 2015 para cá),
+  // e só as passagens dessa época (que terminam em 1990 ou depois)
+  function hardLegends() {
+    if (MF._ondeHard) return MF._ondeHard;
+    const { P } = MF.data;
+    const score = (p) => p.r + (p.icon ? 6 : 0) + (p.bow ? 4 : p.bo ? 2 : 0) + (p.wc ? 1 : 0) + Math.min(3, (p.caps || 0) / 40);
+    const era = (p) => (p.lastY >= 1990 && p.first <= 2010) || p.lastY >= 2015;
+    const fame = (p) => p.legend || p.icon || p.bo || ((p.wc || p.famous) && p.r >= 84) || p.r >= 86;
+    return (MF._ondeHard = P.slice(0, MF.CORE_N).filter((p) => p.retired && !p.ext && era(p) && fame(p) && p.st.length).sort((a, b) => score(b) - score(a)));
+  }
   function pool(lvl) {
     MF._ondePool = MF._ondePool || {};
     if (MF._ondePool[lvl]) return MF._ondePool[lvl];
     const { byClub } = MF.data;
     const out = [];
-    for (const p of legends().slice(0, TOP[lvl])) {
-      // passagens com datas confiáveis; no Fácil e no Normal só clubes conhecidos
-      const st = p.st.filter((s) => MF.exact(s) && s[2] - s[1] >= MINLEN[lvl] && (lvl === 'legend' || lvl === 'hard' || byClub[s[0]].length >= (lvl === 'easy' ? 60 : 30)));
-      if (st.length) out.push({ i: p.i, pos: p.pos, st, w: out.length < TOP[lvl] / 3 ? 2 : 1 });
+    const hard = lvl === 'hard' && MF.isNew();
+    for (const p of (hard ? hardLegends() : legends()).slice(0, hard ? 320 : TOP[lvl])) {
+      // passagens com datas confiáveis; no Fácil e no Normal só clubes conhecidos; no Difícil só passagens de 1990 para cá
+      const st = p.st.filter((s) => MF.exact(s) && s[2] - s[1] >= MINLEN[lvl] && (!hard || s[2] >= 1990) && (lvl === 'legend' || lvl === 'hard' || byClub[s[0]].length >= (lvl === 'easy' ? 60 : 30)));
+      if (st.length) out.push({ i: p.i, pos: p.pos, st, w: out.length < (hard ? 320 : TOP[lvl]) / 3 ? 2 : 1 });
     }
     return (MF._ondePool[lvl] = out);
   }
@@ -69,9 +80,9 @@
   MF.registerGame({
     num: 11, slug: 'jogou-por-onde',
     rules: {
-      pt: ['Só lendas: um time de craques aposentados que marcaram época dos anos 70 aos 2000 (e quem parou há pouco), numa formação sorteada, com o período ao lado do nome (ex.: 97/02 = de 1997 a 2002).', 'Digite o clube onde o jogador destacado atuava naquele período. Vale qualquer clube em que ele jogou nesses anos. Toque em outro jogador para mudar a ordem.', 'Fácil: as maiores lendas, passagens longas por clubes grandes e a bandeira do país do clube como dica. Normal: lendas conhecidas e passagens de 2 anos ou mais. Difícil: mais lendas e qualquer passagem. Lendário: qualquer lenda, inclusive passagens curtas e clubes menores.', 'Tentativas livres: erre quantas vezes quiser, pule ou toque na bandeira branca para encerrar. Acerte todos para vencer. Ajuda: uma vez por partida, mostra as iniciais do clube do jogador destacado.'],
-      en: ['Legends only: a team of retired greats from the 70s to the 2000s (and recent retirees), in a random formation, with the period next to the name (e.g. 97/02 = 1997 to 2002).', 'Type the club where the highlighted player was in that period. Any club he played for in those years counts. Tap another player to change the order.', 'Easy: the biggest legends, long spells at big clubs and the club’s country flag as a hint. Normal: well-known legends and spells of 2+ years. Hard: more legends and any spell. Legendary: any legend, including short spells and smaller clubs.', 'Unlimited tries: miss as often as you like, skip or tap the white flag to end. Get them all to win. Help: once per game, shows the initials of the highlighted player’s club.'],
-      es: ['Solo leyendas: un equipo de cracks retirados que marcaron época de los 70 a los 2000 (y quienes se retiraron hace poco), en una formación sorteada, con el periodo junto al nombre (ej.: 97/02 = de 1997 a 2002).', 'Escribe el club donde jugaba el jugador destacado en ese periodo. Vale cualquier club en el que jugó en esos años. Toca otro jugador para cambiar el orden.', 'Fácil: las mayores leyendas, etapas largas en clubes grandes y la bandera del país del club como pista. Normal: leyendas conocidas y etapas de 2 años o más. Difícil: más leyendas y cualquier etapa. Legendario: cualquier leyenda, incluso etapas cortas y clubes pequeños.', 'Intentos libres: falla cuantas veces quieras, salta o toca la bandera blanca para terminar. Acierta todos para ganar. Ayuda: una vez por partida, muestra las iniciales del club del jugador destacado.'],
+      pt: ['Só lendas: um time de craques aposentados que marcaram época dos anos 70 aos 2000 (e quem parou há pouco), numa formação sorteada, com o período ao lado do nome (ex.: 97/02 = de 1997 a 2002).', 'Digite o clube onde o jogador destacado atuava naquele período. Vale qualquer clube em que ele jogou nesses anos. Toque em outro jogador para mudar a ordem.', 'Fácil: as maiores lendas, passagens longas por clubes grandes e a bandeira do país do clube como dica. Normal: lendas conhecidas e passagens de 2 anos ou mais. Difícil: lendas que jogaram entre 1990 e 2010 e os aposentados recentes, com qualquer passagem dessa época. Lendário: qualquer lenda, inclusive passagens curtas e clubes menores.', 'Tentativas livres: erre quantas vezes quiser, pule ou toque na bandeira branca para encerrar. Acerte todos para vencer. Ajuda: uma vez por partida, mostra as iniciais do clube do jogador destacado.'],
+      en: ['Legends only: a team of retired greats from the 70s to the 2000s (and recent retirees), in a random formation, with the period next to the name (e.g. 97/02 = 1997 to 2002).', 'Type the club where the highlighted player was in that period. Any club he played for in those years counts. Tap another player to change the order.', 'Easy: the biggest legends, long spells at big clubs and the club’s country flag as a hint. Normal: well-known legends and spells of 2+ years. Hard: legends who played between 1990 and 2010 plus recent retirees, any spell from that era. Legendary: any legend, including short spells and smaller clubs.', 'Unlimited tries: miss as often as you like, skip or tap the white flag to end. Get them all to win. Help: once per game, shows the initials of the highlighted player’s club.'],
+      es: ['Solo leyendas: un equipo de cracks retirados que marcaron época de los 70 a los 2000 (y quienes se retiraron hace poco), en una formación sorteada, con el periodo junto al nombre (ej.: 97/02 = de 1997 a 2002).', 'Escribe el club donde jugaba el jugador destacado en ese periodo. Vale cualquier club en el que jugó en esos años. Toca otro jugador para cambiar el orden.', 'Fácil: las mayores leyendas, etapas largas en clubes grandes y la bandera del país del club como pista. Normal: leyendas conocidas y etapas de 2 años o más. Difícil: leyendas que jugaron entre 1990 y 2010 y los retirados recientes, cualquier etapa de esa época. Legendario: cualquier leyenda, incluso etapas cortas y clubes pequeños.', 'Intentos libres: falla cuantas veces quieras, salta o toca la bandera blanca para terminar. Acierta todos para ganar. Ayuda: una vez por partida, muestra las iniciales del club del jugador destacado.'],
     },
     options: [MF.levelOpt(), MF.timerOpt([0, 120, 90, 60])],
     preview() { return h('div', { class: 'pv-draft br' }, F['4-3-3'].map(([, x, y]) => h('b', { style: { left: x + '%', top: y + '%' } }))); },
@@ -79,7 +90,7 @@
       const { P, clubs } = MF.data;
       const st = ctx.state;
       const lvl = MF.level(st);
-      const L = lineup(MF.dailyPick('g11-onde-lendas2', lvl, () => [...Array(900).keys()]), lvl);
+      const L = lineup(MF.dailyPick(MF.isNew() ? 'g11-onde-lendas3' : 'g11-onde-lendas2', lvl, () => [...Array(900).keys()]), lvl);
       const items = L.slots.map((s) => ({ ...s, name: P[s.pi].n, nat: P[s.pi].nat }));
       // aceita qualquer clube do jogador cuja passagem toque o período mostrado
       const okClubs = items.map((it) => {

@@ -8,6 +8,7 @@
     "now":    jogadores (índice na base) em elencos 2026/27 dessas 8 ligas (EA FC 27 + Brasileirão 2026)
   }
   "tops": listas Top 10 da Pirâmide (tools/tops.json)
+  "imp": listas do Modo impostor (tools/impostor.json)
 """
 import collections, json, os, re, unicodedata
 
@@ -105,6 +106,9 @@ def main():
     tops = os.path.join(ROOT, 'tools', 'tops.json')
     if os.path.exists(tops):
         games['tops'] = json.load(open(tops))
+    imp = os.path.join(ROOT, 'tools', 'impostor.json')   # listas do Modo impostor (temporadas, artilharias, títulos)
+    if os.path.exists(imp):
+        games['imp'] = json.load(open(imp))
     json.dump(games, open(GAMES, 'w'), ensure_ascii=False, separators=(',', ':'))
     print('famous', len(games['levels']['famous']), 'ucl', len(games['levels']['ucl']), 'uel', len(games['levels']['uel']), 'top', len(top),
           'now', len(now), 'sem par', miss, 'tops', len(games.get('tops', [])))
