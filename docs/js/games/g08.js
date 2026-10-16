@@ -12,10 +12,14 @@
   const NOTABLE = { easy: 84, normal: 80, hard: 77, legend: 74 };
   const lab = (pt, en, es) => ({ pt, en, es });
 
+  function coreList() {
+    if (!MF._impCore) MF._impCore = MF.data.P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && p.r >= 74);
+    return MF._impCore;
+  }
   function categories() {
     if (MF._imp2) return MF._imp2;
     const { P, clubs, byClub, leagues, games } = MF.data;
-    const core = P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && p.r >= 74);
+    const core = coreList();
     const cats = [];
     const ofClub = (c) => (p) => p.clubs.includes(c);
     // clubes
@@ -92,23 +96,23 @@
   function statCats() {
     if (MF._imp5) return MF._imp5;
     const { P, clubs, games } = MF.data;
-    const { core } = categories();
+    const core = coreList();
     const coreSet = new Set(core.map((p) => p.i));
     const res = (n, nat) => { const p = MF.resolvePlayer(n); return p && (!nat || p.nat === nat) ? p : null; };
     const clubIdx = (name) => { const k = MF.norm(name); const c = clubs.find((x) => MF.norm(x.n) === k); return c ? c.i : -1; };
     const out = [];
     // nome da lista que não casou com a base: ninguém com esse sobrenome vira impostor (ex.: grafia diferente na base)
     const sur = (n) => { const w = MF.norm(n).split(/\s+/).filter((x) => x.length > 2); return w[w.length - 1] || MF.norm(n); };
-    const lookalikes = (names) => {
-      const ws = new Set(names.map(sur));
-      return ws.size ? core.filter((p) => p.keys.some((k) => k.split(/\s+/).some((w) => ws.has(w)))).map((p) => p.i) : [];
-    };
+    const byWord = new Map();
+    for (const p of core) for (const k of p.keys) for (const w of k.split(/\s+/)) { if (!byWord.has(w)) byWord.set(w, new Set()); byWord.get(w).add(p.i); }
+    const lookalikes = (names) => { const out = new Set(); names.forEach((n) => (byWord.get(sur(n)) || []).forEach((i) => out.add(i))); return [...out]; };
     const add = (c) => {
       c.members = new Set(c.order.map((o) => o.pi).filter((i) => i >= 0));
       c.avoid = c.avoid || new Set();
       lookalikes(c.order.filter((o) => o.pi < 0).map((o) => o.n)).forEach((i) => { if (!c.members.has(i)) c.avoid.add(i); });
       c.test = (p) => c.members.has(p.i);
-      if ([...c.members].filter((i) => coreSet.has(i)).length >= 4) out.push(c);
+      c.inCore = [...c.members].filter((i) => coreSet.has(i)).length;
+      if (c.inCore >= 4) out.push(c);
     };
     const nearOf = (spec) => {
       const n = [];
@@ -203,20 +207,21 @@
   }
   // categoria do dia para o nível (também usada nos testes: MF._impPick)
   function chooseCat(lvl) {
-    const { cats, core } = categories();
+    const core = coreList();
     // a partir de 16/10/2026: jogadores e clubes das categorias seguem o critério do nível (Lendário mantém a base)
     const NEW = MF.isNew();
-    const NFor = (l) => (NEW && l !== 'legend' ? core.filter((p) => MF.playerOk(l, p)) : core.filter((p) => p.r >= NOTABLE[l] || (l !== 'easy' && p.famous)));
+    MF._impN = MF._impN || {};
+    const NFor = (l) => MF._impN[l + NEW] || (MF._impN[l + NEW] = NEW && l !== 'legend' ? core.filter((p) => MF.playerOk(l, p)) : core.filter((p) => p.r >= NOTABLE[l] || (l !== 'easy' && p.famous)));
     const N = NFor(lvl);
     const LVLS = { easy: [0], normal: [0, 1], hard: [1, 2], legend: [2, 3] };
     const clubsOk = (c, l) => !NEW || l === 'legend' || !c.clubs || c.clubs.every((x) => MF.clubOk(l, x));
-    const okFor = (l) => { const n = NFor(l); return cats.filter((c) => LVLS[l].includes(c.lv) && clubsOk(c, l) && n.filter(c.test).length >= 6 && n.filter((p) => !c.test(p)).length >= 10); };
+    const okFor = (l) => { const n = NFor(l); return categories().cats.filter((c) => LVLS[l].includes(c.lv) && clubsOk(c, l) && n.filter(c.test).length >= 6 && n.filter((p) => !c.test(p)).length >= 10); };
     // desde 16/10/2026: 4 de cada 5 dias são perguntas de números (rankings, temporadas, artilharias, títulos);
     // no outro dia volta uma categoria clássica (clube, seleção, liga…)
     const STAT = NEW && MF.today() % 5 !== 2;
     const stats = statCats();
     const memOk = (c, n) => n.filter((p) => c.members.has(p.i)).length;
-    const okStat = (l) => { const n = NFor(l); return stats.filter((c) => LVLS[l].includes(c.lv) && memOk(c, core) >= 4 && n.filter((p) => !c.members.has(p.i) && !c.avoid.has(p.i)).length >= 10); };
+    const okStat = (l) => { const n = NFor(l); return stats.filter((c) => LVLS[l].includes(c.lv) && c.inCore >= 4 && n.length - c.members.size - c.avoid.size >= 10); };
     const cat = STAT ? MF.dailyPick('g8-imp5s', lvl, okStat, (c) => c.key) : MF.dailyPick(NEW ? 'g8-imp5c' : 'g8-imp3', lvl, okFor, (c) => c.key);
     return { cat, STAT, NFor, core, N };
   }

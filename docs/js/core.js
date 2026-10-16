@@ -339,11 +339,15 @@
     return out;
   };
   /** resolve um texto digitado num jogador (exato), ou null */
+  // índice nome -> jogador de maior nota (refeito só quando a base cresce, ex.: ext.json)
+  let RIDX = null, RLEN = -1;
   MF.resolvePlayer = (q) => {
-    const nq = MF.norm(q);
-    let best = null;
-    for (const p of MF.data.P) if (p.keys.includes(nq) && (!best || p.r > best.r)) best = p;
-    return best;
+    const P = MF.data.P;
+    if (!RIDX || RLEN !== P.length) {
+      RIDX = new Map(); RLEN = P.length;
+      for (const p of P) for (const k of p.keys) { const b = RIDX.get(k); if (!b || p.r > b.r) RIDX.set(k, p); }
+    }
+    return RIDX.get(MF.norm(q)) || null;
   };
 
   // ------------------------------------------------------------------ rótulos
