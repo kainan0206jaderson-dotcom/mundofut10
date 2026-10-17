@@ -152,7 +152,10 @@
       all.filter((x) => x.v >= 5).forEach((x) => five.push(x));
       if (+y >= 1990) {
         const t10 = all.slice(0, 10).map((x, k) => ({ ...x, pos: k + 1 }));
-        add({ key: 's-wcg' + y, lv: +y >= 2014 ? 0 : +y >= 2002 ? 1 : 2, unit: 'gols', order: t10, near: nearOf({ att: true }), src: 'FIFA',
+        // impostor plausível: atacante que jogou ESSA Copa (desde 18/10/2026; antes, qualquer atacante)
+        const inCup = new Set(Object.entries(games.wcapp || {}).filter(([, l]) => l.some((x) => x[0] === +y)).map(([i]) => +i));
+        const attNear = nearOf({ att: true });
+        add({ key: 's-wcg' + y, lv: +y >= 2014 ? 0 : +y >= 2002 ? 1 : 2, unit: 'gols', order: t10, near: MF.today() >= 6 ? (p) => attNear(p) && inCup.has(p.i) : attNear, src: 'FIFA',
           label: lab('Top 10: artilheiros da Copa do Mundo de ' + y, 'Top 10: top scorers at the ' + y + ' World Cup', 'Top 10: goleadores del Mundial ' + y) });
       }
     }
@@ -231,9 +234,9 @@
   MF.registerGame({
     num: 8, slug: 'modo-impostor',
     rules: {
-      pt: ['A categoria do dia fica no centro e 10 jogadores aparecem em volta (só jogadores de 1990 para cá).', 'Marque todos que pertencem à categoria. Quem não pertence é impostor. Quase todo dia a pergunta é sobre números de verdade: mais jogos ou gols numa competição, quem fez 50 gols numa temporada, artilheiros de liga e de Copa, Chuteira de Ouro, Bola de Ouro, títulos e marcas pela seleção. No fim aparece a ordem real com os números. De vez em quando volta uma categoria clássica (clube, seleção, liga).', 'Ajuda: uma vez por partida, revela um impostor.', 'Fácil: craques conhecidos, clubes famosos, categorias amplas e impostores bem diferentes. Normal: jogadores conhecidos das principais ligas, clubes famosos e campeões da Champions, impostores da mesma geração. Difícil: jogadores das principais ligas e lendas, campeões europeus e clubes da 1ª divisão, impostores parecidos. Lendário: impostores "quase" (jogou a Copa mas não marcou, ficou fora do top 10, chegou perto da marca).', 'Estilo Normal: marque todos e confirme. Um por um: cada toque vale, e um impostor encerra o jogo.'],
-      en: ['Today’s category is in the middle with 10 players around it (only players from 1990 on).', 'Pick everyone who fits the category. Those who don’t are impostors. Most days the question is about real numbers: most appearances or goals in a competition, 50-goal seasons, league and World Cup top scorers, Golden Shoe, Ballon d’Or, titles and international records. At the end you see the real order with the numbers. Now and then a classic category (club, nation, league) comes back.', 'Help: once per game, reveals one impostor.', 'Easy: famous players and clubs, broad categories and very different impostors. Normal: well-known top-league players, famous clubs and Champions League winners, impostors from the same generation. Hard: top-league players and legends, European winners and top-flight clubs, similar impostors. Legendary: "nearly" impostors (played the World Cup but didn’t score, just outside the top 10, close to the mark).', 'Normal style: pick them all and confirm. One by one: every tap counts and one impostor ends the game.'],
-      es: ['La categoría del día está en el centro con 10 jugadores alrededor (solo jugadores de 1990 en adelante).', 'Marca a todos los que encajan en la categoría. Los que no, son impostores. Casi todos los días la pregunta es sobre números reales: más partidos o goles en una competición, temporadas de 50 goles, máximos goleadores de liga y de Mundial, Bota de Oro, Balón de Oro, títulos y marcas con la selección. Al final aparece el orden real con los números. A veces vuelve una categoría clásica (club, selección, liga).', 'Ayuda: una vez por partida, revela un impostor.', 'Fácil: cracks y clubes famosos, categorías amplias e impostores muy distintos. Normal: jugadores conocidos de las grandes ligas, clubes famosos y campeones de la Champions, impostores de la misma generación. Difícil: jugadores de las grandes ligas y leyendas, campeones europeos y clubes de primera, impostores parecidos. Legendario: impostores "casi" (jugó el Mundial pero no marcó, se quedó fuera del top 10, rozó la marca).', 'Estilo Normal: márcalos todos y confirma. Uno a uno: cada toque cuenta y un impostor termina el juego.'],
+      pt: ['A categoria do dia fica no centro e 10 jogadores aparecem em volta (só jogadores de 1990 para cá).', 'Marque todos que pertencem à categoria. Quem não pertence é impostor. Quase todo dia a pergunta é sobre números de verdade: mais jogos ou gols numa competição, quem fez 50 gols numa temporada, artilheiros de liga e de Copa, Chuteira de Ouro, Bola de Ouro, títulos e marcas pela seleção. No fim aparece a ordem real com os números. De vez em quando volta uma categoria clássica (clube, seleção, liga).', 'Ajuda: uma vez por partida, revela um impostor.', 'Fácil: craques conhecidos, clubes famosos e categorias amplas; nas perguntas de números, os impostores são do mesmo contexto (mesma seleção, clube ou liga; atacantes nas listas de gols), mas bem conhecidos. Normal: jogadores conhecidos das principais ligas, clubes famosos e campeões da Champions, impostores da mesma geração. Difícil: jogadores das principais ligas e lendas, campeões europeus e clubes da 1ª divisão, impostores parecidos. Lendário: impostores "quase" (jogou a Copa mas não marcou, ficou fora do top 10, chegou perto da marca).', 'Estilo Normal: marque todos e confirme. Um por um: cada toque vale, e um impostor encerra o jogo.'],
+      en: ['Today’s category is in the middle with 10 players around it (only players from 1990 on).', 'Pick everyone who fits the category. Those who don’t are impostors. Most days the question is about real numbers: most appearances or goals in a competition, 50-goal seasons, league and World Cup top scorers, Golden Shoe, Ballon d’Or, titles and international records. At the end you see the real order with the numbers. Now and then a classic category (club, nation, league) comes back.', 'Help: once per game, reveals one impostor.', 'Easy: famous players and clubs and broad categories; in number questions, impostors come from the same context (same nation, club or league; forwards in goal lists), but well known. Normal: well-known top-league players, famous clubs and Champions League winners, impostors from the same generation. Hard: top-league players and legends, European winners and top-flight clubs, similar impostors. Legendary: "nearly" impostors (played the World Cup but didn’t score, just outside the top 10, close to the mark).', 'Normal style: pick them all and confirm. One by one: every tap counts and one impostor ends the game.'],
+      es: ['La categoría del día está en el centro con 10 jugadores alrededor (solo jugadores de 1990 en adelante).', 'Marca a todos los que encajan en la categoría. Los que no, son impostores. Casi todos los días la pregunta es sobre números reales: más partidos o goles en una competición, temporadas de 50 goles, máximos goleadores de liga y de Mundial, Bota de Oro, Balón de Oro, títulos y marcas con la selección. Al final aparece el orden real con los números. A veces vuelve una categoría clásica (club, selección, liga).', 'Ayuda: una vez por partida, revela un impostor.', 'Fácil: cracks y clubes famosos y categorías amplias; en las preguntas de números, los impostores son del mismo contexto (misma selección, club o liga; delanteros en las listas de goles), pero muy conocidos. Normal: jugadores conocidos de las grandes ligas, clubes famosos y campeones de la Champions, impostores de la misma generación. Difícil: jugadores de las grandes ligas y leyendas, campeones europeos y clubes de primera, impostores parecidos. Legendario: impostores "casi" (jugó el Mundial pero no marcó, se quedó fuera del top 10, rozó la marca).', 'Estilo Normal: márcalos todos y confirma. Uno a uno: cada toque cuenta y un impostor termina el juego.'],
     },
     options: [
       MF.levelOpt(),
@@ -260,13 +263,32 @@
       const sameEra = (p) => Math.abs((p.born || 1990) - era) <= 8;
       const similar = (p) => good.some((g) => g.nat === p.nat || g.leagues.some((l) => p.leagues.includes(l)));
       let src;
-      if (lvl === 'easy') src = outs.filter((p) => !similar(p) || p.famous);
-      else if (lvl === 'normal') src = outs.filter(sameEra);
-      else if (lvl === 'hard') src = outs.filter((p) => sameEra(p) && (similar(p) || (cat.near && cat.near(p))));
-      else src = outs.filter((p) => cat.near && cat.near(p));
-      if (src.length < 10 - k) src = outs.filter(sameEra);
-      if (src.length < 10 - k) src = outs;
+      const need = 10 - k;
+      // Desde 18/10/2026 (pedido do usuário): nas perguntas de números, todo impostor é plausível em qualquer nível —
+      // sai do mesmo contexto da pergunta (mesma seleção, clube ou liga; atacante nas listas de gols; marca parecida),
+      // para ninguém ser eliminado só por ser zagueiro, de outro país ou de outra época. O nível só muda o quanto ele é parecido.
+      const PLAUS = STAT && MF.today() >= 6 && cat.near;
+      const fit = PLAUS ? outs.filter(cat.near) : null;
+      if (fit && fit.length >= need) {
+        const famous = (p) => p.famous || p.legend || p.bo || p.r >= 84;
+        const tiers = {
+          easy: [fit.filter(famous), fit],
+          normal: [fit.filter(sameEra), fit],
+          hard: [fit.filter((p) => sameEra(p) && similar(p)), fit.filter(sameEra), fit],
+          legend: [fit.filter((p) => sameEra(p) && similar(p)), fit.filter(sameEra), fit],
+        }[lvl];
+        src = tiers.find((x) => x.length >= need);
+      } else {
+        if (lvl === 'easy') src = outs.filter((p) => !similar(p) || p.famous);
+        else if (lvl === 'normal') src = outs.filter(sameEra);
+        else if (lvl === 'hard') src = outs.filter((p) => sameEra(p) && (similar(p) || (cat.near && cat.near(p))));
+        else src = outs.filter((p) => cat.near && cat.near(p));
+        if (src.length < need) src = outs.filter(sameEra);
+        if (src.length < need) src = outs;
+      }
+      MF._impLast = { cat, good, plaus: !!(fit && fit.length >= need), fit: fit ? fit.length : 0 };
       const bad = MF.sample(src.sort((a, b) => b.r - a.r).slice(0, lvl === 'easy' ? 40 : 80), 10 - k, rnd);
+      MF._impLast.bad = bad;
       const ring = MF.shuffle([...good, ...bad], rnd).map((p) => p.i);
       const goodSet = new Set(good.map((p) => p.i));
       st.sel = st.sel || [];
