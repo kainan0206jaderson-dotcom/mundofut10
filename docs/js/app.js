@@ -26,16 +26,91 @@
   }
   const SUN = '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="4.6" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></g></svg>';
   const MOON = '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5a8.6 8.6 0 1 0 11.1 11.1z" fill="currentColor"/></svg>';
-  function paintSky(el) { const d = isDay(); el.innerHTML = d ? SUN : MOON; el.dataset.p = d ? 'day' : 'night'; el.title = d ? t('dayNow') : t('nightNow'); }
+  function paintSky(el) {
+    const d = isDay(); el.innerHTML = d ? SUN : MOON; el.dataset.p = d ? 'day' : 'night';
+    if (!el.hasAttribute('data-notitle')) el.title = d ? t('dayNow') : t('nightNow');
+  }
   function credit() { return h('p', { class: 'credit' }, t('creditBy') + ' ', h('strong', { translate: 'no' }, 'SucodeFrutas')); }
-  function clockLine() {
-    const ico = h('span', { class: 'clock-ico', 'aria-hidden': 'true', 'data-sky': '' });
-    paintSky(ico);
-    return h('p', { class: 'reset-line clock-line' }, ico,
-      h('span', { class: 'clock-txt' }, h('span', { class: 'clock-label' }, t('brasiliaTime')), h('strong', { 'data-clock': '' }, brasiliaTime())));
+
+  // ------------------------------------------------------------------ placar do estádio (relógio de Brasília)
+  // Painel de LED como os de estádio: no lugar do placar do jogo, horas × minutos; os segundos são o cronômetro
+  // da partida, "1º tempo" de manhã e "2º tempo" de tarde/noite. A cada minuto os números piscam como gol
+  // marcado; na virada da hora o painel comemora com GOOOL. O estádio 3D tem um telão igual (stadium.js).
+  const BRT = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  MF.clockParts = (d) => {
+    const p = {};
+    for (const x of BRT.formatToParts(d || new Date())) p[x.type] = x.value;
+    const hh = p.hour === '24' ? '00' : p.hour;
+    const half = +hh < 12 ? 1 : 2;
+    return { h: hh, m: p.minute, s: p.second, half, extra: +hh === 23 && +p.minute >= 45 };
+  };
+  MF.halfLabel = (c) => t(c.half === 1 ? 'half1' : 'half2') + (c.extra ? '+' : '');
+  function scoreboard() {
+    const c = MF.clockParts();
+    const dig = (k, v, cls) => h('span', { class: 'sb-d' + (cls ? ' ' + cls : ''), 'data-d': k },
+      h('span', { class: 'sb-off' }, '8'), h('span', { class: 'sb-on' }, v));
+    const sky = h('span', { class: 'sb-sky', 'data-sky': '', 'data-notitle': '' });
+    paintSky(sky);
+    const bulbs = h('span', { class: 'sb-bulbs' }, Array.from({ length: 16 }, (_, i) => h('i', { style: { '--b': i } })));
+    const board = h('div', { class: 'sb', 'data-board': '' },
+      h('span', { class: 'sr-only', 'data-sb-sr': '' }, t('brasiliaTime') + ' ' + c.h + ':' + c.m),
+      h('div', { class: 'sb-frame', 'aria-hidden': 'true' }, bulbs,
+        h('div', { class: 'sb-screen' },
+          h('div', { class: 'sb-top' },
+            h('span', { class: 'sb-period', 'data-sb-half': '' }, MF.halfLabel(c)),
+            h('span', { class: 'sb-sec' }, dig('s0', c.s[0], 'sm'), dig('s1', c.s[1], 'sm')),
+            sky),
+          h('div', { class: 'sb-main' },
+            h('span', { class: 'sb-team' }, h('i', { class: 'sb-kit' }), 'MUN'),
+            h('span', { class: 'sb-score', 'data-g': 'h' }, dig('h0', c.h[0]), dig('h1', c.h[1])),
+            h('span', { class: 'sb-colon' }, ':'),
+            h('span', { class: 'sb-score', 'data-g': 'm' }, dig('m0', c.m[0]), dig('m1', c.m[1])),
+            h('span', { class: 'sb-team away' }, 'FUT', h('i', { class: 'sb-kit g' }))),
+          h('div', { class: 'sb-goal' }, h('span', null, '')),
+          h('div', { class: 'sb-bar', style: { '--p': ((+c.s + 1) / 60).toFixed(4) } }))));
+    board._v = c;
+    return board;
+  }
+  // varredura de LED: o número novo acende de cima para baixo, linha a linha
+  const LED_WIPE = [{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0% 0)' }];
+  const LED_BLINK = [
+    { opacity: 1, offset: 0 }, { opacity: 1, offset: 0.16 }, { opacity: 0.12, offset: 0.18 }, { opacity: 0.12, offset: 0.34 },
+    { opacity: 1, offset: 0.36 }, { opacity: 1, offset: 0.52 }, { opacity: 0.12, offset: 0.54 }, { opacity: 0.12, offset: 0.7 },
+    { opacity: 1, offset: 0.72 }, { opacity: 1, offset: 1 }];
+  function goalBoard(b, c) {
+    if (MF.reduced() || b.classList.contains('is-goal')) return;
+    b.querySelector('.sb-goal span').textContent = t('goal') + '  ' + c.h + ':00';
+    b.classList.add('is-goal');
+    clearTimeout(b._goalT);
+    b._goalT = setTimeout(() => b.classList.remove('is-goal'), 5400);
+  }
+  function updateBoards() {
+    const boards = document.querySelectorAll('[data-board]');
+    if (!boards.length) return;
+    const c = MF.clockParts(), anim = !MF.reduced();
+    boards.forEach((b) => {
+      const prev = b._v || {};
+      const val = { h0: c.h[0], h1: c.h[1], m0: c.m[0], m1: c.m[1], s0: c.s[0], s1: c.s[1] };
+      b.querySelectorAll('[data-d]').forEach((el) => {
+        const on = el.lastChild, v = val[el.dataset.d];
+        if (on.textContent === v) return;
+        on.textContent = v;
+        if (anim) on.animate(LED_WIPE, { duration: 220, easing: 'steps(6, end)' });
+      });
+      b.querySelector('.sb-bar').style.setProperty('--p', ((+c.s + 1) / 60).toFixed(4));
+      const half = b.querySelector('[data-sb-half]'), hl = MF.halfLabel(c);
+      if (half.textContent !== hl) half.textContent = hl;
+      if (prev.m != null && prev.m !== c.m) {
+        b.querySelector('[data-sb-sr]').textContent = t('brasiliaTime') + ' ' + c.h + ':' + c.m;
+        if (prev.h !== c.h) goalBoard(b, c);
+        else if (anim) b.querySelectorAll('.sb-score').forEach((g) => g.animate(LED_BLINK, { duration: 1100, easing: 'linear' }));
+      }
+      b._v = c;
+    });
   }
   function tick() {
     document.querySelectorAll('[data-clock]').forEach((el) => (el.textContent = brasiliaTime()));
+    updateBoards();
     if (new Date().getSeconds() === 0) document.querySelectorAll('[data-sky]').forEach(paintSky);
     const ms = MF.nextReset() - Date.now();
     document.querySelectorAll('[data-reset]').forEach((el) => (el.textContent = MF.fmtCountdown(ms)));
@@ -53,7 +128,8 @@
   if (!MF._scrollHook) { MF._scrollHook = true; addEventListener('scroll', () => { const t = document.querySelector('.top'); if (t) t.classList.toggle('scrolled', scrollY > 24); }, { passive: true }); }
   clearInterval(MF._cdIv);
   MF._cdIv = setInterval(tick, 1000);
-  function header() {
+  function header(opts) {
+    const noClock = opts && opts.noClock;
     const sel = h('div', { class: 'lang-switch', role: 'group', 'aria-label': t('language') },
       MF.LANGS.map(([v, l]) => h('button', {
         type: 'button', class: v === MF.lang ? 'on' : '', 'aria-pressed': v === MF.lang ? 'true' : 'false', lang: v,
@@ -63,7 +139,7 @@
     return h('header', { class: 'top' }, skip,
       h('a', { class: 'logo', href: '#', 'aria-label': 'MUNDOFUT10', translate: 'no' }, h('span', { class: 'logo-word' }, 'MUNDOFUT'), h('span', { class: 'logo-num' }, '10')),
       h('div', { class: 'top-right' },
-        h('span', { class: 'cd', title: t('brasiliaTime') }, h('span', { class: 'cd-label' }, t('brasiliaTime')), h('time', { class: 'cd-time', 'data-clock': '' }, brasiliaTime())),
+        noClock ? null : h('span', { class: 'cd' }, h('span', { class: 'sr-only' }, t('brasiliaTime')), h('time', { class: 'cd-time', 'data-clock': '' }, brasiliaTime())),
         sel,
         h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('stats'), title: t('stats'), onclick: () => showAllStats() }, statsIcon())));
   }
@@ -119,7 +195,7 @@
   function home2d() {
     document.body.classList.remove('is-home3d');
     const root = MF.clear(app());
-    root.appendChild(header());
+    root.appendChild(header({ noClock: true }));
     const done = MF.games.filter((g) => ['won', 'lost'].includes(gameStatus(g))).length;
     const d = MF.dayDate();
     const dateStr = d.toLocaleDateString(MF.lang === 'pt' ? 'pt-BR' : MF.lang, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' });
@@ -161,7 +237,7 @@
         h('div', { class: 'progress', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 11, 'aria-valuenow': done, 'aria-label': t('doneToday') },
           h('span', { class: 'progress-bar', style: { width: (done / 11) * 100 + '%' } }),
           h('span', { class: 'progress-txt' }, done + '/11 ' + t('doneToday'))),
-clockLine(),
+scoreboard(),
         done === 11 ? h('p', { class: 'all-done' }, t('allDone')) : null),
       h('div', { class: 'home-grid' }, h('div', { class: 'pitch-wrap' }, pitch), sheet)));
     root.appendChild(footer());
@@ -191,7 +267,7 @@ clockLine(),
     const S = MF.Stadium;
     const root = MF.clear(app());
     document.body.classList.add('is-home3d');
-    root.appendChild(header());
+    root.appendChild(header({ noClock: true }));
     const done = MF.games.filter((g) => ['won', 'lost'].includes(gameStatus(g))).length;
     const dateStr = MF.dayDate().toLocaleDateString(MF.lang === 'pt' ? 'pt-BR' : MF.lang, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' });
     const layer = h('div', { class: 'jersey-layer', role: 'list', 'aria-label': t('lineup') });
@@ -211,7 +287,7 @@ clockLine(),
         h('div', { class: 'progress', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 11, 'aria-valuenow': done, 'aria-label': t('doneToday') },
           h('span', { class: 'progress-bar', style: { width: (done / 11) * 100 + '%' } }),
           h('span', { class: 'progress-txt' }, done + '/11 ' + t('doneToday'))),
-clockLine()),
+scoreboard()),
       done === 11 ? h('p', { class: 'all-done' }, t('allDone')) : null);
     const fog = h('div', { class: 'cloud-fog', 'aria-hidden': 'true' });
     const skip = h('button', { class: 'cam-skip', type: 'button', hidden: true, onclick: () => S.skipIntro() }, t('skipIntro'));
@@ -225,7 +301,16 @@ clockLine()),
     const wide = () => innerWidth >= 900;
     const setCols = () => stage.classList.toggle('cols', innerWidth >= 1200);
     setCols(); addEventListener('resize', setCols);
+    // telas largas: o telão 3D do estádio é o relógio (o placar da interface vira só texto para leitores de tela);
+    // nas demais, o telão some depois da abertura e o placar da interface assume
+    const boardMode = () => {
+      const on = stage.classList.contains('cols');
+      S.boardFit = on;
+      stage.classList.toggle('board3d', on);
+      S.setBoard(on || !!S.intro);
+    };
     const fitRect = () => {
+      boardMode();
       const sr = stage.getBoundingClientRect(), ur = ui.getBoundingClientRect();
       const W = sr.width, H = sr.height;
       const y1 = 1 - 2 * ((ur.bottom - sr.top + 14) / H);
@@ -248,6 +333,7 @@ clockLine()),
       skip.hidden = false;
       setTimeout(() => skip.focus({ preventScroll: true }), 60);
       S.playIntro(() => {
+        S.setBoard(stage.classList.contains('cols'));
         document.body.classList.remove('intro-on');
         main.classList.remove('intro-on');
         main.classList.add('ui-in');

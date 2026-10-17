@@ -312,6 +312,206 @@
     const tx = new T.CanvasTexture(c); tx.wrapS = T.RepeatWrapping;
     return tx;
   }
+  // ------------------------------------------------------------------ telão (placar de LED) com o relógio de Brasília
+  // Pendurado na cobertura atrás do gol do fundo. No lugar do placar do jogo: horas × minutos; segundos como
+  // cronômetro da partida (1º tempo de manhã, 2º tempo de tarde/noite). A textura só é redesenhada quando o
+  // relógio muda ou durante uma animação (varredura dos dígitos, pisca do minuto, GOOOL na virada da hora).
+  const BOARD = { W: 1024, H: 400, w: 62, h: 24.2 };
+  const BLINK = [[0, 1], [0.16, 1], [0.18, 0.12], [0.34, 0.12], [0.36, 1], [0.52, 1], [0.54, 0.12], [0.7, 0.12], [0.72, 1], [1, 1]];
+  const blinkAt = (p) => { for (let i = BLINK.length - 1; i >= 0; i--) if (p >= BLINK[i][0]) return BLINK[i][1]; return 1; };
+  function boardDots() {
+    // grade de pontos de LED: escurece o espaço entre os "pixels" do painel
+    const c = document.createElement('canvas'); c.width = BOARD.W; c.height = BOARD.H;
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = 'destination-out';
+    g.fillStyle = '#000';
+    for (let y = 3; y < c.height; y += 6) for (let x = 3; x < c.width; x += 6) { g.beginPath(); g.arc(x, y, 2.3, 0, 6.2832); g.fill(); }
+    g.globalCompositeOperation = 'source-over';
+    const sh = g.createLinearGradient(0, 0, c.width * 0.3, c.height);
+    sh.addColorStop(0, 'rgba(255,255,255,.07)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = sh; g.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+  function drawBoard(st, now) {
+    const c = st.canvas, g = c.getContext('2d'), W = BOARD.W, H = BOARD.H, k = st.c;
+    const LED = '#ffd400', LED2 = '#ffa31a', GREEN = '#3ae58e';
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const bg = g.createRadialGradient(W / 2, -40, 40, W / 2, H * 0.4, W * 0.7);
+    bg.addColorStop(0, '#1a1912'); bg.addColorStop(0.6, '#070706'); bg.addColorStop(1, '#030302');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.textBaseline = 'alphabetic';
+    const glowText = (txt, x, y, col, glow, blur, align) => {
+      g.textAlign = align || 'center';
+      g.shadowColor = glow; g.shadowBlur = blur; g.fillStyle = col; g.fillText(txt, x, y);
+      g.shadowBlur = 0;
+    };
+    const wipeP = (key) => { const t0 = st.wipe[key]; if (t0 == null) return 1; const p = Math.min(1, (now - t0) / 220); return Math.ceil(p * 6 - 1e-6) / 6; };
+    // um dígito de LED: o "8" apagado por baixo e o número aceso por cima (com varredura quando muda)
+    const digit = (key, ch, x, yBase, size, col, glow, off, alpha) => {
+      g.font = `900 ${size}px "Big Shoulders Display", Impact, sans-serif`;
+      glowText('8', x, yBase, off, 'transparent', 0);
+      const p = wipeP(key);
+      if (p <= 0) return;
+      g.save();
+      g.globalAlpha = alpha;
+      g.beginPath(); g.rect(x - size, yBase - size * 0.95, size * 2, size * 1.05 * p); g.clip();
+      glowText(ch, x, yBase, col, glow, size * 0.12);
+      g.restore();
+    };
+    const goal = st.goal != null && now - st.goal < 5200;
+    // faixa de cima: tempo (1º/2º), segundos no cronômetro, sol ou lua
+    g.font = '800 58px "Big Shoulders Display", Impact, sans-serif';
+    glowText(st.half, 44, 82, LED2, 'rgba(255,150,0,.8)', 14, 'left');
+    g.strokeStyle = 'rgba(255,163,26,.45)'; g.lineWidth = 3;
+    g.fillStyle = 'rgba(255,163,26,.07)';
+    g.beginPath(); g.roundRect ? g.roundRect(W / 2 - 62, 22, 124, 74, 10) : g.rect(W / 2 - 62, 22, 124, 74); g.fill(); g.stroke();
+    digit('s0', k.s[0], W / 2 - 25, 86, 72, LED2, 'rgba(255,150,0,.85)', 'rgba(255,163,26,.1)', 1);
+    digit('s1', k.s[1], W / 2 + 25, 86, 72, LED2, 'rgba(255,150,0,.85)', 'rgba(255,163,26,.1)', 1);
+    g.save();
+    g.translate(W - 70, 58);
+    if (st.day) {
+      g.shadowColor = 'rgba(255,150,0,.8)'; g.shadowBlur = 14; g.fillStyle = LED2;
+      g.beginPath(); g.arc(0, 0, 13, 0, 6.2832); g.fill();
+      g.strokeStyle = LED2; g.lineWidth = 5; g.lineCap = 'round';
+      for (let i = 0; i < 8; i++) { const a = (i / 8) * 6.2832; g.beginPath(); g.moveTo(Math.cos(a) * 21, Math.sin(a) * 21); g.lineTo(Math.cos(a) * 29, Math.sin(a) * 29); g.stroke(); }
+    } else {
+      g.shadowColor = 'rgba(170,190,255,.85)'; g.shadowBlur = 14; g.fillStyle = '#cdd8ff';
+      g.beginPath(); g.arc(0, 0, 26, 0, 6.2832); g.fill();
+      g.shadowBlur = 0; g.fillStyle = '#080807';   // a "mordida" da lua pinta o fundo do painel (sem furar a textura)
+      g.beginPath(); g.arc(13, -10, 24, 0, 6.2832); g.fill();
+    }
+    g.restore();
+    // linha principal: MUN [hh] : [mm] FUT — ou o GOOOL correndo pelo painel
+    const yB = 300;
+    if (goal) {
+      const el = now - st.goal, loop = (el % 2600) / 2600;
+      g.font = '900 190px "Big Shoulders Display", Impact, sans-serif';
+      const txt = st.goalTxt, tw = g.measureText(txt).width;
+      glowText(txt, W - loop * (W + tw), yB - 8, LED, 'rgba(255,200,0,.85)', 26, 'left');
+    } else {
+      const bl = st.blink != null && now - st.blink < 1100 ? blinkAt((now - st.blink) / 1100) : 1;
+      // caixas dos placares
+      g.strokeStyle = 'rgba(255,212,0,.24)'; g.lineWidth = 3; g.fillStyle = 'rgba(255,212,0,.04)';
+      for (const x of [W / 2 - 236, W / 2 + 36]) { g.beginPath(); g.roundRect ? g.roundRect(x, 118, 200, 200, 14) : g.rect(x, 118, 200, 200); g.fill(); g.stroke(); }
+      const off = 'rgba(255,212,0,.08)', glow = 'rgba(255,190,0,.9)';
+      digit('h0', k.h[0], W / 2 - 184, yB, 210, LED, glow, off, bl);
+      digit('h1', k.h[1], W / 2 - 88, yB, 210, LED, glow, off, bl);
+      digit('m0', k.m[0], W / 2 + 88, yB, 210, LED, glow, off, bl);
+      digit('m1', k.m[1], W / 2 + 184, yB, 210, LED, glow, off, bl);
+      // dois-pontos piscando a cada segundo
+      if (st.colon) { g.fillStyle = LED; g.shadowColor = glow; g.shadowBlur = 16; for (const y of [182, 256]) { g.beginPath(); g.arc(W / 2, y, 11, 0, 6.2832); g.fill(); } g.shadowBlur = 0; }
+      g.font = '800 74px "Big Shoulders Display", Impact, sans-serif';
+      glowText('MUN', 76, 246, '#f6efd6', 'rgba(255,240,200,.6)', 12, 'left');
+      glowText('FUT', W - 76, 246, '#f6efd6', 'rgba(255,240,200,.6)', 12, 'right');
+      g.shadowBlur = 14;
+      g.shadowColor = LED; g.fillStyle = LED; g.fillRect(44, 192, 18, 62);
+      g.shadowColor = GREEN; g.fillStyle = GREEN; g.fillRect(W - 62, 192, 18, 62);
+      g.shadowBlur = 0;
+    }
+    // barra de segundos (60 gomos)
+    const seg = (W - 88) / 60, filled = +k.s + 1;
+    for (let i = 0; i < 60; i++) {
+      g.fillStyle = i < filled ? LED : 'rgba(255,212,0,.1)';
+      if (i < filled) { g.shadowColor = 'rgba(255,190,0,.7)'; g.shadowBlur = 6; }
+      g.fillRect(44 + i * seg, 350, seg - 4, 16);
+      g.shadowBlur = 0;
+    }
+    g.drawImage(st.dots, 0, 0);
+  }
+  function buildBoard(T, A, rOut, hTop) {
+    const st = { canvas: document.createElement('canvas'), dots: boardDots(), wipe: {}, blink: null, goal: null, key: '', drawn: 0, colon: true, op: 0, target: 1 };
+    st.canvas.width = BOARD.W; st.canvas.height = BOARD.H;
+    st.tex = new T.CanvasTexture(st.canvas);
+    st.tex.anisotropy = 4;
+    const grp = new T.Group();
+    const metal = new T.MeshLambertMaterial({ color: 0x24221d, transparent: true });
+    const trim = new T.MeshBasicMaterial({ color: 0xffd400, transparent: true });
+    const screenMat = new T.MeshBasicMaterial({ map: st.tex, transparent: true });
+    const { w, h } = BOARD;
+    const box = new T.Mesh(new T.BoxGeometry(w + 3.2, h + 4.4, 1.6), metal); box.position.set(0, 0.6, -0.9); grp.add(box);
+    const rim = new T.Mesh(new T.PlaneGeometry(w + 1.3, h + 1.3), trim); rim.position.z = 0.02; grp.add(rim);
+    const scr = new T.Mesh(new T.PlaneGeometry(w, h), screenMat); scr.position.z = 0.06; grp.add(scr);
+    // fileira de lâmpadas na moldura de cima
+    const bulbGeo = new T.CircleGeometry(0.42, 10), bulbs = [];
+    for (let i = 0; i < 16; i++) {
+      const m = new T.MeshBasicMaterial({ color: 0xffd400, transparent: true });
+      const b = new T.Mesh(bulbGeo, m); b.position.set(-w / 2 + 2.4 + (i * (w - 4.8)) / 15, h / 2 + 1.55, 0.04); grp.add(b); bulbs.push(m);
+    }
+    // pendurado na borda interna da cobertura por cabos de aço, sobre a arquibancada atrás do gol do fundo,
+    // inclinado para a câmera
+    grp.position.set(0, hTop - 4.2, -95);
+    grp.rotation.x = -0.42;
+    grp.updateMatrixWorld(true);
+    const cable = new T.MeshLambertMaterial({ color: 0x55524a, transparent: true });
+    const cables = [];
+    const yRoof = hTop + 7.7;
+    for (const x of [-w * 0.36, w * 0.36]) {
+      const a = new T.Vector3(x, h / 2 + 2.6, -0.9).applyMatrix4(grp.matrixWorld);
+      const zr = -SB * (rOut - 0.17) * Math.sqrt(Math.max(0, 1 - Math.pow(x / (A * (rOut - 0.17)), 2)));
+      const b = new T.Vector3(x, yRoof, zr);
+      const len = a.distanceTo(b);
+      const cb = new T.Mesh(new T.CylinderGeometry(0.13, 0.13, len, 5), cable);
+      cb.position.copy(a).add(b).multiplyScalar(0.5);
+      cb.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+      cables.push(cb);
+    }
+    st.group = grp; st.cables = cables; st.mats = [metal, trim, screenMat, cable, ...bulbs]; st.bulbs = bulbs;
+    // cantos (mundo) para o enquadramento da câmera
+    st.corners = [[-w / 2 - 1.6, h / 2 + 2.8], [w / 2 + 1.6, h / 2 + 2.8], [-w / 2 - 1.6, -h / 2 - 1.6], [w / 2 + 1.6, -h / 2 - 1.6]].map(([x, y]) => new T.Vector3(x, y, 0).applyMatrix4(grp.matrixWorld));
+    return st;
+  }
+  S.boardTick = (now) => {
+    const st = S.board;
+    if (!st) return;
+    // aparece/desaparece suave (o placar da interface assume nas telas estreitas)
+    const dtOp = st.target - st.op;
+    if (Math.abs(dtOp) > 0.001) {
+      st.op += dtOp * 0.12; if (Math.abs(st.target - st.op) < 0.01) st.op = st.target;
+      st.mats.forEach((m) => (m.opacity = st.op));
+    }
+    st.group.visible = st.op > 0.01;
+    st.cables.forEach((cb) => (cb.visible = st.group.visible));
+    if (!st.group.visible) return;
+    const anim = !MF.reduced();
+    // lâmpadas acendendo em sequência (mais rápido no GOOOL)
+    const goal = st.goal != null && now - st.goal < 5200;
+    const per = goal ? 480 : 2400, lit = per * 0.22;
+    st.bulbs.forEach((m, i) => { const ph = anim ? ((now + i * (goal ? 30 : 150)) % per) : 0; m.color.setRGB(1, 0.83, 0).multiplyScalar(!anim ? 0.55 : ph < lit ? 1 : 0.22); });
+    // o relógio só é consultado a cada 100 ms (o dois-pontos pisca a cada meio segundo)
+    const busy = (st.blink != null && now - st.blink < 1150) || goal || Object.values(st.wipe).some((t0) => now - t0 < 260);
+    if (!busy && now - (st.checked || 0) < 100) return;
+    st.checked = now;
+    const c = MF.clockParts ? MF.clockParts() : null;
+    if (!c) return;
+    const key = c.h + c.m + c.s;
+    let dirty = false;
+    if (key !== st.key) {
+      const prev = st.c;
+      if (prev && anim) {
+        for (const [d, a, b] of [['h0', prev.h[0], c.h[0]], ['h1', prev.h[1], c.h[1]], ['m0', prev.m[0], c.m[0]], ['m1', prev.m[1], c.m[1]]]) if (a !== b) st.wipe[d] = now;   // segundos trocam direto: textura redesenhada ~2× por segundo
+        if (prev.m !== c.m) {
+          if (prev.h !== c.h) { st.goal = now; st.goalTxt = (MF.t ? MF.t('goal') : 'GOOOL!') + '  ' + c.h + ':00'; }
+          else st.blink = now;
+        }
+      }
+      st.c = c; st.key = key; st.half = MF.halfLabel ? MF.halfLabel(c) : (c.half === 1 ? '1ºT' : '2ºT');
+      st.day = S.day == null ? true : S.day > 0.5;
+      st.tick = now;
+      dirty = true;
+    }
+    const colon = !anim || now - (st.tick || now) < 500;
+    if (colon !== st.colon) { st.colon = colon; dirty = true; }
+    const active = (st.blink != null && now - st.blink < 1150) || (st.goal != null && now - st.goal < 5300) ||
+      Object.values(st.wipe).some((t0) => now - t0 < 260);
+    if (active && now - st.drawn > 33) dirty = true;
+    if (!dirty) return;
+    drawBoard(st, now);
+    st.drawn = now;
+    st.tex.needsUpdate = true;
+  };
+  S.setBoard = (on) => { if (S.board) S.board.target = on ? 1 : 0; };
+
   const SHIRT = 'M20 3 L8 8 L1 22 L11 27 L13 23 V57 H51 V23 L53 27 L63 22 L56 8 L44 3 C42 9 37 12 32 12 C27 12 22 9 20 3 Z';
   function shirtCanvas(num, status) {
     const c = document.createElement('canvas'); c.width = c.height = 256;
@@ -622,6 +822,9 @@
     for (let k = 0; k <= 160; k++) { const a = (k / 160) * 6.283; ringPts.push(new T.Vector3(Math.cos(a) * (rOut - 0.15) * A, hTop + 7.3, Math.sin(a) * (rOut - 0.15) * B)); }
     S._ring = new T.LineBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.85 });
     scene.add(new T.Line(new T.BufferGeometry().setFromPoints(ringPts), S._ring));
+    // telão com o relógio (placar de LED)
+    S.board = buildBoard(T, A, rOut, hTop);
+    scene.add(S.board.group); S.board.cables.forEach((cb) => scene.add(cb));
 
     // torcida: caixinhas instanciadas nos degraus, com mosaico amarelo/preto atrás dos gols
     const seats = [];
@@ -884,6 +1087,7 @@
         pts.push(new T.Vector3(x, yTop, z)); if (fr >= 1.55) pts.push(new T.Vector3(x, 0, z));
       }
       for (const j of S.jerseys) pts.push(new T.Vector3(j.base.x, 12.5, j.base.z));
+      if (S.boardFit && S.board) pts.push(...S.board.corners);
       res = solve(pts);
       if (res.pitchPx >= minPitch) break;
     }
@@ -942,6 +1146,7 @@
     // relógio próprio do voo (soma de quadros, não o relógio da parede): um engasgo do navegador não vira salto na câmera
     S.intro = { el: 0, dur: S.mobile ? 7600 : 8400, onReveal, onEnd, revealed: false, skip: null };
     S.introDone = false;
+    if (S.board) S.board.target = 1;   // o telão faz parte do voo em todas as telas
     S.start();
   };
   S.skipIntro = () => { if (S.intro && S.intro.skip == null) S.intro.skip = S.intro.el; };
@@ -1053,6 +1258,7 @@
       const sh = clamp(e, 0, 1) * (1 - j.hover * 0.25);
       j.shadow.scale.set(sh, sh, sh);
     }
+    S.boardTick(now);
     S.renderer.render(S.scene, camera);
     // posiciona os links (DOM) sobre as camisas — só escreve no DOM o que mudou
     if (S.layer) {
