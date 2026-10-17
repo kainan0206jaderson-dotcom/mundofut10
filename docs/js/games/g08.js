@@ -48,7 +48,12 @@
     for (const [lid, name] of Object.entries(leagues)) {
       const l = +lid;
       const k = core.filter((p) => p.leagues.includes(l)).length;
-      if (k >= 40 && k <= core.length * 0.7) cats.push({ key: 'l' + l, lv: [13, 53, 31, 19, 16, 7].includes(l) ? 1 : 2, label: lab('Jogou na ' + name, 'Played in the ' + name, 'Jugó en la ' + name), test: (p) => p.leagues.includes(l) || p.leagues.includes(lid) });
+      if (k < 40 || k > core.length * 0.7) continue;
+      // impostor plausível (desde 18/10): jogou em outra liga ao lado de quem jogou nesta (mesmas seleções mais comuns)
+      const nc = new Map(); core.forEach((p) => { if (p.leagues.includes(l)) nc.set(p.nat, (nc.get(p.nat) || 0) + 1); });
+      const topNat = new Set([...nc].sort((x, y) => y[1] - x[1]).slice(0, 4).map((x) => x[0]));
+      cats.push({ key: 'l' + l, lv: [13, 53, 31, 19, 16, 7].includes(l) ? 1 : 2, label: lab('Jogou na ' + name, 'Played in the ' + name, 'Jugó en la ' + name), test: (p) => p.leagues.includes(l) || p.leagues.includes(lid),
+        near: (p) => topNat.has(p.nat) });
     }
     // Copas do Mundo
     const app = new Map(Object.entries(games.wcapp || {}).map(([i, l]) => [+i, l]));
@@ -79,8 +84,9 @@
     // seleção e mercado (Transfermarkt)
     cats.push({ key: 'c100', lv: 1, label: lab('100 jogos ou mais pela seleção', '100+ caps', '100 partidos o más con la selección'), test: (p) => p.caps >= 100, near: (p) => p.caps >= 65 && p.caps < 100 });
     cats.push({ key: 'g40', lv: 2, label: lab('40 gols ou mais pela seleção', '40+ international goals', '40 goles o más con la selección'), test: (p) => p.ng >= 40, near: (p) => p.ng >= 22 && p.ng < 40 });
-    cats.push({ key: 'mv100', lv: 1, label: lab('Já valeu €100 mi ou mais (Transfermarkt)', 'Market value of €100m+ (Transfermarkt)', 'Llegó a valer €100M o más (Transfermarkt)'), test: (p) => p.mv >= 100, near: (p) => p.mv >= 60 && p.mv < 100 });
-    cats.push({ key: 'fee50', lv: 2, label: lab('Foi vendido por €50 mi ou mais', 'Sold for €50m or more', 'Vendido por €50M o más'), test: (p) => p.fee >= 50, near: (p) => p.fee >= 25 && p.fee < 50 });
+    // valor de mercado e venda saíram em 18/10/2026: a base não tem todas as marcas (faltavam Neymar 222, Mbappé 180…)
+    if (MF.today() < 6) cats.push({ key: 'mv100', lv: 1, label: lab('Já valeu €100 mi ou mais (Transfermarkt)', 'Market value of €100m+ (Transfermarkt)', 'Llegó a valer €100M o más (Transfermarkt)'), test: (p) => p.mv >= 100, near: (p) => p.mv >= 60 && p.mv < 100 });
+    if (MF.today() < 6) cats.push({ key: 'fee50', lv: 2, label: lab('Foi vendido por €50 mi ou mais', 'Sold for €50m or more', 'Vendido por €50M o más'), test: (p) => p.fee >= 50, near: (p) => p.fee >= 25 && p.fee < 50 });
     // posição
     cats.push({ key: 'gk', lv: 0, label: lab('Goleiros', 'Goalkeepers', 'Porteros'), test: (p) => p.pos === 'GK', near: () => true });
     cats.push({ key: 'cb', lv: 1, label: lab('Zagueiros', 'Centre-backs', 'Centrales'), test: (p) => p.pos === 'CB', near: (p) => ['LB', 'RB', 'CDM'].includes(p.pos) });
@@ -267,7 +273,7 @@
       // Desde 18/10/2026 (pedido do usuário): nas perguntas de números, todo impostor é plausível em qualquer nível —
       // sai do mesmo contexto da pergunta (mesma seleção, clube ou liga; atacante nas listas de gols; marca parecida),
       // para ninguém ser eliminado só por ser zagueiro, de outro país ou de outra época. O nível só muda o quanto ele é parecido.
-      const PLAUS = STAT && MF.today() >= 6 && cat.near;
+      const PLAUS = MF.today() >= 6 && cat.near; // desde 18/10 também nas categorias clássicas
       const fit = PLAUS ? outs.filter(cat.near) : null;
       if (fit && fit.length >= need) {
         const famous = (p) => p.famous || p.legend || p.bo || p.r >= 84;
