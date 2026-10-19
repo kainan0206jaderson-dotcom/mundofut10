@@ -84,10 +84,16 @@
    * O histórico é recalculado desde o lançamento, igual para todo mundo.
    */
   MF._dp = {};
-  MF.dailyPick = (gameKey, lvl, poolFor, idOf) => {
+  // opts.avoid(item, dia): pula o item nesse dia (ex.: Impostor não repete o tema da Pirâmide). Sem opts, nada muda.
+  // MF.dailyHist(gameKey) devolve o que saiu em cada dia (por nível), recalculado junto.
+  MF._dpH = MF._dpH || {};
+  MF.dailyHist = (gameKey) => MF._dpH[gameKey + '|' + MF.today()] || null;
+  MF.dailyPick = (gameKey, lvl, poolFor, idOf, opts) => {
     const today = MF.today();
     const ck = gameKey + '|' + today;
     if (!MF._dp[ck]) {
+      const avoid = opts && opts.avoid;
+      const hist = [];
       const id = idOf || ((x) => x);
       const S = MF.LEVELS.map((l) => {
         const pool = poolFor(l) || [];
@@ -96,6 +102,7 @@
       const last = new Map(); // identidade -> último dia usado (qualquer nível)
       const res = {};
       for (let d = 0; d <= Math.max(0, today); d++) {
+        const day = (hist[d] = {});
         for (const s of S) {
           if (!s.n) { res[s.l] = null; continue; }
           if (!s.order || s.pos >= s.n) {
@@ -107,20 +114,24 @@
             for (let k = 0; k < rest.length; k++) s.order[s.pos + k] = rest[k];
           }
           // primeiro item da fila cuja resposta não saiu (em nível nenhum) nos últimos R dias
-          let best = -1, bestAge = -1;
+          let best = -1, bestAge = -1, anyK = -1;
           for (let k = s.pos; k < s.n; k++) {
+            if (avoid && avoid(s.pool[s.order[k]], d)) { if (anyK < 0) anyK = k; continue; }
             const used = last.get(id(s.pool[s.order[k]]));
             const age = used == null ? Infinity : d - used;
             if (age > s.R) { best = k; break; }
             if (age > bestAge) { bestAge = age; best = k; }
           }
+          if (best < 0) best = anyK >= 0 ? anyK : s.pos; // tudo evitado: segue a fila
           [s.order[s.pos], s.order[best]] = [s.order[best], s.order[s.pos]];
           const item = s.pool[s.order[s.pos++]];
           last.set(id(item), d);
+          day[s.l] = item;
           if (d === today) res[s.l] = item;
         }
       }
       MF._dp[ck] = res;
+      MF._dpH[ck] = hist;
     }
     const r = MF._dp[ck];
     return r[lvl] !== undefined ? r[lvl] : r.normal;
@@ -139,7 +150,7 @@
   try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith(LS + 'd2:')) localStorage.removeItem(k); } } catch (e) { /* sem armazenamento */ }
   // versão do estado do dia por jogo: mudar a versão zera o progresso do dia só daquele jogo
   // (16/10/2026: Modo impostor e Jogou por onde? mudaram no meio do dia, a pedido do usuário)
-  MF.STATE_VER = { 'modo-impostor': '#5', 'jogou-por-onde': '#2', 'desafio-do-elenco': '#2' }; // #2: revelação gradual (18/10/2026)
+  MF.STATE_VER = { 'modo-impostor': '#6', 'jogou-por-onde': '#2', 'desafio-do-elenco': '#2' }; // #2: revelação gradual (18/10/2026)
   const gk = (game) => game + (MF.STATE_VER[game] || '');
   MF.dayState = (game, lvl) => MF.load('d3:' + gk(game) + ':' + (lvl || 'normal') + ':' + MF.today(), null);
   MF.saveDayState = (game, st) => MF.save('d3:' + gk(game) + ':' + ((st && st.opts && st.opts.mode) || 'normal') + ':' + MF.today(), st);

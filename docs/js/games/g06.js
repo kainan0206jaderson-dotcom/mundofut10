@@ -110,6 +110,20 @@
     }
     return (MF._pyr3 = cats.filter((c) => c.items.length === 10));
   }
+  // pergunta do dia por nível (também lida pelo Modo impostor para não repetir o tema no mesmo dia: MF._pyrHist)
+  function pyrGame() {
+    const NEW = MF.isNew();
+    const all = NEW ? topCats() : categories();
+    // Fácil: categorias populares; cada nível sobe a régua (no Lendário vale qualquer uma)
+    const distinct = (c) => new Set(c.items.map((x) => x.v)).size;
+    const LVN = { easy: 0, normal: 1, hard: 2, legend: 3 };
+    const inLv = NEW
+      ? (c, l) => (l === 'legend' ? true : l === 'hard' ? c.lv === 1 || c.lv === 2 : c.lv <= LVN[l])
+      : (c, l) => (l === 'legend' ? true : l === 'hard' ? c.lv >= 1 : c.lv <= LVN[l]);
+    return { key: NEW ? 'g6-top10' : 'g6-pyr3', catsFor: (l) => all.filter((c) => inLv(c, l) && (c.fixed || distinct(c) >= 10)) };
+  }
+  function pyrDaily(lvl) { const g = pyrGame(); return MF.dailyPick(g.key, lvl, g.catsFor, (c) => c.key); }
+  MF._pyrHist = () => { const g = pyrGame(); pyrDaily('normal'); return MF.dailyHist(g.key) || []; };
   // escolhe os 10 do dia conforme a dificuldade (determinístico)
   function pick(cat, lvl, rnd) {
     if (cat.fixed) return cat.items.slice(0, 10);
@@ -159,16 +173,7 @@
       const st = ctx.state;
       const lvl = MF.level(st);
       const LV = { easy: 0, normal: 1, hard: 2, legend: 3 }[lvl];
-      const NEW = MF.isNew();
-      const all = NEW ? topCats() : categories();
-      // Fácil: categorias populares; cada nível sobe a régua (no Lendário vale qualquer uma)
-      const distinct = (c) => new Set(c.items.map((x) => x.v)).size;
-      const LVN = { easy: 0, normal: 1, hard: 2, legend: 3 };
-      const inLv = NEW
-        ? (c, l) => (l === 'legend' ? true : l === 'hard' ? c.lv === 1 || c.lv === 2 : c.lv <= LVN[l])
-        : (c, l) => (l === 'legend' ? true : l === 'hard' ? c.lv >= 1 : c.lv <= LVN[l]);
-      const catsFor = (l) => all.filter((c) => inLv(c, l) && (c.fixed || distinct(c) >= 10));
-      const cat = MF.dailyPick(NEW ? 'g6-top10' : 'g6-pyr3', lvl, catsFor, (c) => c.key);
+      const cat = pyrDaily(lvl);
       const items = pick(cat, lvl, MF.rng('pyr2:' + MF.today() + ':' + lvl + ':' + cat.key));
       const sorted = items.map((x, i) => i).sort((a, b) => items[b].v - items[a].v);
       const rankVal = sorted.map((i) => items[i].v);

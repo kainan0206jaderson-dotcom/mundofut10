@@ -36,7 +36,8 @@
     for (let a = 0; a < bigIdx.length; a++) for (let b = a + 1; b < bigIdx.length; b++) {
       const A = bigIdx[a], B = bigIdx[b];
       const n = core.filter((p) => p.clubs.includes(A) && p.clubs.includes(B)).length;
-      if (n >= 6) cats.push({ key: 'cc' + A + '-' + B, clubs: [A, B], lv: 2, label: lab('Jogou no ' + clubs[A].n + ' e no ' + clubs[B].n, 'Played for ' + clubs[A].n + ' and ' + clubs[B].n, 'Jugó en el ' + clubs[A].n + ' y el ' + clubs[B].n),
+      if (n >= 6) cats.push({ key: 'cc' + A + '-' + B, clubs: [A, B], lv: MF.today() >= 7 ? 1 : 2, // dois clubes grandes = pergunta de Normal (19/10/2026)
+         label: lab('Jogou no ' + clubs[A].n + ' e no ' + clubs[B].n, 'Played for ' + clubs[A].n + ' and ' + clubs[B].n, 'Jugó en el ' + clubs[A].n + ' y el ' + clubs[B].n),
         test: (p) => p.clubs.includes(A) && p.clubs.includes(B), near: (p) => p.clubs.includes(A) || p.clubs.includes(B) });
     }
     // seleções
@@ -99,6 +100,58 @@
   // games.json "tops" (Top 10 curados da Pirâmide), "imp" (tools/impostor.json), "wcg" (gols por Copa) e "ballon".
   // Quem não está na lista é impostor; no fim aparece a ordem real com os números.
   const ATT = ['ST', 'CF', 'LW', 'RW', 'CAM', 'LM', 'RM'];
+  // desde 19/10/2026 (desafio nº 8): nota de dificuldade por pergunta, Difícil/Lendário sempre de números, tema diferente da Pirâmide
+  const V7 = () => MF.today() >= 7;
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  // fama: o quanto o nome é conhecido (nota + marcações)
+  const fame = (p) => p.r + (p.famous || p.legend ? 4 : 0) + (p.bo ? 4 : 0) + (p.bow ? 4 : 0) + (p.icon ? 2 : 0);
+  const midY = (p) => (p.first + Math.min(p.lastY, 2026)) / 2;
+  const cLen = (p) => Math.min(p.lastY, 2026) - p.first;
+  // tema de uma pergunta (Pirâmide "t-…" ou Impostor "s-…"): perguntas com tema em comum não saem no mesmo dia
+  const IMP_TAGS = { s50: ['boot'], boot: ['boot'], pl30: ['pl'], plboot: ['pl'], pichichi: ['ll'], capo: ['sa'], bunde: ['bl'],
+    ucl5: ['ucl'], ucl2c: ['ucl'], libucl: ['lib', 'ucl'], wctop: ['wc'], wc5: ['wc'], cup4: ['wc'], cup5: ['wc'], wcsc3: ['wc'], wcg8: ['wc'], wcj20: ['wc'],
+    bopod: ['bo'], cap120: ['caps'], cap150: ['caps'], ng50: ['ng'], ng60: ['ng'], wceu: ['wc', 'euro'], wclib: ['wc', 'lib'], wcbo: ['wc', 'bo'] };
+  const X_TAGS = { ucl: 'ucl', wc: 'wc', pl: 'pl', ll: 'll', sa: 'sa', bl: 'bl', lib: 'lib' };
+  function qTags(key) {
+    const k = String(key).replace(/^[st]-/, '');
+    let m;
+    if ((m = k.match(/^g-(\w+)$/))) return ['nat:' + m[1], 'ng'];
+    if ((m = k.match(/^c-(\w+)$/))) return ['nat:' + m[1], 'caps'];
+    if ((m = k.match(/^(?:cl|a)-(\w+)$/))) return ['club:' + m[1]];
+    if ((m = k.match(/^x-(ucl|wc|pl|ll|sa|bl|lib)/))) return [X_TAGS[m[1]]];
+    if ((m = k.match(/^wcg(\d{4})$/))) return ['wc', 'wc:' + m[1]];
+    if ((m = k.match(/^bo(\d{4})$/))) return ['bo', 'bo:' + m[1]];
+    return IMP_TAGS[k] || [k];
+  }
+  MF._qTags = qTags;
+  // temas da Pirâmide em cada dia (todos os níveis juntos)
+  let pyrDays = null;
+  function pyrTagsOn(d) {
+    if (!pyrDays) {
+      pyrDays = [];
+      try { (MF._pyrHist ? MF._pyrHist() : []).forEach((day, i) => { const s = new Set(); Object.values(day || {}).forEach((c) => c && qTags(c.key).forEach((x) => s.add(x))); pyrDays[i] = s; }); } catch (e) { /* sem Pirâmide */ }
+    }
+    return pyrDays[d] || null;
+  }
+  // Nota de dificuldade (0–100) de uma pergunta de números, medida nos dados:
+  //  O = quão pouco conhecidos são os certos (mediana da fama da lista)    35%
+  //  A = época (quanto mais antiga, mais difícil)                           15%
+  //  T = armadilhas: impostores plausíveis e tão conhecidos quanto os certos 20%
+  //  L = nível curado da lista (como na Pirâmide)                          30%
+  function rate(c, core) {
+    const mem = core.filter((p) => c.members.has(p.i)).sort((a, b) => fame(b) - fame(a));
+    // referência: a mediana da fama dos certos (os 6 mais famosos sempre são craques; o que pesa é o resto da lista)
+    const famTop = mem.length ? fame(mem[Math.floor(mem.length / 2)]) : 85;
+    const mids = mem.map(midY).sort((a, b) => a - b);
+    const t = c.year || mids[Math.floor(mids.length / 2)] || 2010;
+    const traps = c.near ? core.filter((p) => !c.members.has(p.i) && !c.avoid.has(p.i) && c.near(p) && fame(p) >= famTop - 8).length : 8;
+    const O = clamp((95 - famTop) / 15), A = clamp((2024 - t) / 30), T = clamp(traps / 25), L = clamp(c.lv / 3);
+    c.rate = { O: +O.toFixed(2), A: +A.toFixed(2), T: +T.toFixed(2), L };
+    c.D = Math.round(100 * (0.35 * O + 0.15 * A + 0.2 * T + 0.3 * L));
+    return c.D;
+  }
+  // faixas da nota (percentil entre todas as perguntas de números) por nível; as faixas se encostam para o sorteio ter variedade
+  const BAND = { easy: [0, 0.38], normal: [0.22, 0.62], hard: [0.52, 0.92], legend: [0.72, 1] };
   function statCats() {
     if (MF._imp5) return MF._imp5;
     const { P, clubs, games } = MF.data;
@@ -137,7 +190,16 @@
       // lista de clube: só vale o jogador que passou pelo clube (ex.: o Dida artilheiro do Flamengo não é o goleiro Dida)
       const order = c.it.map(([n, v, nat], k) => { let p = res(n, nat || c.nat); if (p && ci >= 0 && !p.clubs.includes(ci)) p = null; return { pi: p ? p.i : -1, n, v, pos: k + 1 }; });
       const lg = (c.k.match(/^x-(pl|ll|sa|bl)/) || [])[1];
-      add({ key: 's-' + c.k, lv: c.lv, label: { pt: c.t[0], en: c.t[1], es: c.t[2] }, src: c.src, unit: c.u, order,
+      // listas de seleção: o número da base (gols/jogos pela seleção) mede o "quase" — quem chegou perto do 10º;
+      // quem tem número de top 10 na base mas não está na lista fica fora (pode ter passado alguém depois da data da lista)
+      const nv = /^g-/.test(c.k) ? (p) => p.ng : /^c-/.test(c.k) ? (p) => p.caps : null;
+      // listas de clube: o "quase" é quem ficou muitos anos no clube (passagem curta entrega que não está no top 10)
+      const yrsAt = ci >= 0 ? (p) => p.st.filter((s) => s[0] === ci).reduce((t, s) => t + Math.max(1, s[2] - s[1]), 0) : null;
+      const minV = Math.min(...c.it.map((x) => x[1]));
+      const avoid = new Set();
+      if (nv && c.nat) core.forEach((p) => { if (p.nat === c.nat && nv(p) >= minV && !order.some((o) => o.pi === p.i)) avoid.add(p.i); });
+      add({ key: 's-' + c.k, lv: c.lv, label: { pt: c.t[0], en: c.t[1], es: c.t[2] }, src: c.src, unit: c.u, order, avoid, career: true,
+        close: nv ? (p) => clamp(nv(p) / minV) : yrsAt ? (p) => clamp((yrsAt(p) - 1) / 8) : null,
         near: nearOf({ nat: c.nat, club: ci, att: c.u === 'gols', league: lg ? LG[lg] : null }) });
     }
     // 2) listas do impostor (temporadas, artilharias de liga, Chuteira de Ouro, títulos)
@@ -145,7 +207,7 @@
       const order = c.it.map((n, k) => { const p = res(n); return { pi: p ? p.i : -1, n, pos: k + 1 }; });
       const nearIds = new Set((c.near_it || []).map((n) => { const p = res(n); return p ? p.i : -1; }));
       const avoid = new Set((c.avoid || []).map((n) => { const p = res(n); return p ? p.i : -1; }));
-      add({ key: 's-' + c.k, lv: c.lv, label: { pt: c.t[0], en: c.t[1], es: c.t[2] }, src: c.src, order, avoid, unordered: true,
+      add({ key: 's-' + c.k, lv: c.lv, label: { pt: c.t[0], en: c.t[1], es: c.t[2] }, src: c.src, order, avoid, unordered: true, career: true,
         near: nearOf({ att: c.near === 'att', league: c.league, ids: nearIds.size ? nearIds : null, sa: c.near === 'sa' }) });
     }
     // 3) Copas do Mundo: Top 10 de artilheiros de cada edição, artilheiros de Copa e quem fez 5+ gols numa Copa
@@ -161,7 +223,7 @@
         // impostor plausível: atacante que jogou ESSA Copa (desde 18/10/2026; antes, qualquer atacante)
         const inCup = new Set(Object.entries(games.wcapp || {}).filter(([, l]) => l.some((x) => x[0] === +y)).map(([i]) => +i));
         const attNear = nearOf({ att: true });
-        add({ key: 's-wcg' + y, lv: +y >= 2014 ? 0 : +y >= 2002 ? 1 : 2, unit: 'gols', order: t10, near: MF.today() >= 6 ? (p) => attNear(p) && inCup.has(p.i) : attNear, src: 'FIFA',
+        add({ key: 's-wcg' + y, year: +y, lv: +y >= 2014 ? 0 : +y >= 2002 ? 1 : 2, unit: 'gols', order: t10, near: MF.today() >= 6 ? (p) => attNear(p) && inCup.has(p.i) : attNear, src: 'FIFA',
           label: lab('Top 10: artilheiros da Copa do Mundo de ' + y, 'Top 10: top scorers at the ' + y + ' World Cup', 'Top 10: goleadores del Mundial ' + y) });
       }
     }
@@ -179,7 +241,7 @@
       if (+y < 1990 || (+y >= 2005 ? +y % 2 !== 1 : +y % 4 !== 0)) continue;
       // impostores "quase": top 10 dos anos vizinhos
       const nearIds = new Set([-2, -1, 1, 2].flatMap((d) => (boY[+y + d] || []).map((o) => o.pi)));
-      add({ key: 's-bo' + y, lv: +y >= 2008 ? 2 : 3, unit: 'pos', order, near: (p) => nearIds.has(p.i), src: 'France Football',
+      add({ key: 's-bo' + y, year: +y, lv: +y >= 2008 ? 2 : 3, unit: 'pos', order, near: (p) => nearIds.has(p.i), src: 'France Football',
         label: lab('Top 10 da Bola de Ouro ' + y, 'Ballon d’Or ' + y + ' top 10', 'Top 10 del Balón de Oro ' + y) });
     }
     add({ key: 's-bopod', lv: 0, unit: 'podium', order: recent(pod), near: (p) => p.bo, src: 'France Football', unordered: true,
@@ -187,16 +249,33 @@
     // 5) marcas da base (Transfermarkt): seleção, Copas e títulos
     const app = new Map(Object.entries(games.wcapp || {}).map(([i, l]) => [+i, l]));
     const nCups = (p) => (app.get(p.i) || []).length;
-    const fromBase = (key, lv, label, test, near, val) => {
+    // close: o quanto o impostor chegou perto da marca (0–1), usado para escolher os "quase" no Difícil e no Lendário
+    const fromBase = (key, lv, label, test, near, val, close, src) => {
       const order = core.filter(test).sort((a, b) => (val ? val(b) - val(a) : b.r - a.r)).map((p, k) => ({ pi: p.i, n: p.n, v: val ? val(p) : null, pos: k + 1 }));
-      add({ key, lv, label, order, near, src: 'Transfermarkt', unordered: !val, unit: val ? 'num' : null });
+      add({ key, lv, label, order, near, src: src || 'Transfermarkt', unordered: !val, unit: val ? 'num' : null, career: true, close: close || null });
     };
-    fromBase('s-cap120', 2, lab('120 jogos ou mais pela seleção', '120+ caps', '120 partidos o más con la selección'), (p) => p.caps >= 120, (p) => p.caps >= 85 && p.caps < 120, (p) => p.caps);
-    fromBase('s-ng50', 0, lab('50 gols ou mais pela seleção', '50+ international goals', '50 goles o más con la selección'), (p) => p.ng >= 50, (p) => p.ng >= 28 && p.ng < 50, (p) => p.ng);
-    fromBase('s-cup4', 2, lab('Jogaram 4 Copas do Mundo ou mais (desde 1990)', 'Played 4+ World Cups (since 1990)', 'Jugaron 4 Mundiales o más (desde 1990)'), (p) => nCups(p) >= 4, (p) => nCups(p) === 3, nCups);
+    const wcGoals = (p) => (app.get(p.i) || []).reduce((s, x) => s + x[2], 0);
+    const wcGames = (p) => (app.get(p.i) || []).reduce((s, x) => s + x[1], 0);
+    const wcScored = (p) => (app.get(p.i) || []).filter((x) => x[2] > 0).length;
+    fromBase('s-cap120', 2, lab('120 jogos ou mais pela seleção', '120+ caps', '120 partidos o más con la selección'), (p) => p.caps >= 120, (p) => p.caps >= 85 && p.caps < 120, (p) => p.caps, (p) => clamp((p.caps - 85) / 35));
+    fromBase('s-ng50', 0, lab('50 gols ou mais pela seleção', '50+ international goals', '50 goles o más con la selección'), (p) => p.ng >= 50, (p) => p.ng >= 28 && p.ng < 50, (p) => p.ng, (p) => clamp((p.ng - 28) / 22));
+    fromBase('s-cup4', 2, lab('Jogaram 4 Copas do Mundo ou mais (desde 1990)', 'Played 4+ World Cups (since 1990)', 'Jugaron 4 Mundiales o más (desde 1990)'), (p) => nCups(p) >= 4, (p) => nCups(p) === 3, nCups, null, 'FIFA');
     fromBase('s-wceu', 1, lab('Campeões da Copa do Mundo e da Eurocopa', 'Won both the World Cup and the Euros', 'Campeones del Mundial y de la Eurocopa'), (p) => p.wc && p.euro, (p) => p.wc || p.euro);
     fromBase('s-wclib', 2, lab('Campeões da Copa do Mundo e da Libertadores', 'Won both the World Cup and the Libertadores', 'Campeones del Mundial y de la Libertadores'), (p) => p.wc && p.lib, (p) => p.wc || p.lib);
     fromBase('s-wcbo', 1, lab('Campeões do mundo que ficaram no top 10 da Bola de Ouro', 'World Cup winners who made a Ballon d’Or top 10', 'Campeones del mundo en el top 10 del Balón de Oro'), (p) => p.wc && p.bo, (p) => p.wc || p.bo);
+    // perguntas mais complexas (19/10/2026, pedido: "mais de 4/5 Copas" etc.), com o "quase" de impostor
+    if (V7()) {
+      fromBase('s-cup5', 3, lab('Jogaram 5 Copas do Mundo ou mais (desde 1990)', 'Played 5+ World Cups (since 1990)', 'Jugaron 5 Mundiales o más (desde 1990)'), (p) => nCups(p) >= 5, (p) => nCups(p) === 4, nCups, null, 'FIFA');
+      fromBase('s-wcsc3', 2, lab('Fizeram gol em 3 Copas do Mundo diferentes ou mais (1990–2026)', 'Scored at 3+ different World Cups (1990–2026)', 'Marcaron en 3 Mundiales distintos o más (1990–2026)'), (p) => wcScored(p) >= 3, (p) => wcScored(p) === 2 && nCups(p) >= 3, wcScored, null, 'FIFA');
+      fromBase('s-wcg8', 2, lab('Fizeram 8 gols ou mais em Copas do Mundo (1990–2026)', 'Scored 8+ World Cup goals (1990–2026)', 'Marcaron 8 goles o más en Mundiales (1990–2026)'), (p) => wcGoals(p) >= 8, (p) => wcGoals(p) >= 4 && wcGoals(p) < 8, wcGoals, (p) => clamp((wcGoals(p) - 3) / 4), 'FIFA');
+      fromBase('s-wcj20', 3, lab('Fizeram 20 jogos ou mais em Copas do Mundo (1990–2026)', 'Played 20+ World Cup matches (1990–2026)', 'Jugaron 20 partidos o más en Mundiales (1990–2026)'), (p) => wcGames(p) >= 20, (p) => wcGames(p) >= 13 && wcGames(p) < 20, wcGames, (p) => clamp((wcGames(p) - 12) / 7), 'FIFA');
+      fromBase('s-cap150', 3, lab('150 jogos ou mais pela seleção', '150+ caps', '150 partidos o más con la selección'), (p) => p.caps >= 150, (p) => p.caps >= 115 && p.caps < 150, (p) => p.caps, (p) => clamp((p.caps - 115) / 35));
+      fromBase('s-ng60', 2, lab('60 gols ou mais pela seleção', '60+ international goals', '60 goles o más con la selección'), (p) => p.ng >= 60, (p) => p.ng >= 38 && p.ng < 60, (p) => p.ng, (p) => clamp((p.ng - 38) / 22));
+    }
+    // nota de dificuldade e percentil de cada pergunta
+    out.forEach((c) => { c.tags = qTags(c.key); rate(c, core); });
+    const sorted = out.slice().sort((a, b) => a.D - b.D || (a.key < b.key ? -1 : 1));
+    sorted.forEach((c, k) => { c.pct = sorted.length > 1 ? k / (sorted.length - 1) : 0.5; });
     return (MF._imp5 = out);
   }
   // "Na ordem": a ordem real dos certos que estavam na roda (com o número quando a lista tem)
@@ -227,9 +306,20 @@
     const okFor = (l) => { const n = NFor(l); return categories().cats.filter((c) => LVLS[l].includes(c.lv) && clubsOk(c, l) && n.filter(c.test).length >= 6 && n.filter((p) => !c.test(p)).length >= 10); };
     // desde 16/10/2026: 4 de cada 5 dias são perguntas de números (rankings, temporadas, artilharias, títulos);
     // no outro dia volta uma categoria clássica (clube, seleção, liga…)
-    const STAT = NEW && MF.today() % 5 !== 2;
     const stats = statCats();
     const memOk = (c, n) => n.filter((p) => c.members.has(p.i)).length;
+    if (V7()) {
+      // desde 19/10/2026: Difícil e Lendário são SEMPRE perguntas de números (estilo Pirâmide); a categoria clássica
+      // (clube, seleção, liga, dois clubes…) volta 1 dia a cada 5 só no Fácil e no Normal.
+      // A pergunta sai da faixa de dificuldade do nível (nota medida nos dados, ver rate) e nunca tem o tema da Pirâmide do dia.
+      const STAT = lvl === 'hard' || lvl === 'legend' || MF.today() % 5 !== 2;
+      const MIN_MEM = { easy: 4, normal: 3, hard: 0, legend: 0 };
+      const pool = (l) => { const n = NFor(l); const [a, b] = BAND[l]; return stats.filter((c) => c.pct >= a && c.pct <= b && c.inCore >= 4 && memOk(c, n) >= MIN_MEM[l] && n.length - c.members.size - c.avoid.size >= 10); };
+      const avoid = (c, d) => { const s = pyrTagsOn(d); return !!s && c.tags.some((x) => s.has(x)); };
+      const cat = STAT ? MF.dailyPick('g8-imp7s', lvl, pool, (c) => c.key, { avoid }) : MF.dailyPick('g8-imp5c', lvl, okFor, (c) => c.key);
+      return { cat, STAT, NFor, core, N };
+    }
+    const STAT = NEW && MF.today() % 5 !== 2;
     const okStat = (l) => { const n = NFor(l); return stats.filter((c) => LVLS[l].includes(c.lv) && c.inCore >= 4 && n.length - c.members.size - c.avoid.size >= 10); };
     const cat = STAT ? MF.dailyPick('g8-imp5s', lvl, okStat, (c) => c.key) : MF.dailyPick(NEW ? 'g8-imp5c' : 'g8-imp3', lvl, okFor, (c) => c.key);
     return { cat, STAT, NFor, core, N };
@@ -240,9 +330,9 @@
   MF.registerGame({
     num: 8, slug: 'modo-impostor',
     rules: {
-      pt: ['A categoria do dia fica no centro e 10 jogadores aparecem em volta (só jogadores de 1990 para cá).', 'Marque todos que pertencem à categoria. Quem não pertence é impostor. Quase todo dia a pergunta é sobre números de verdade: mais jogos ou gols numa competição, quem fez 50 gols numa temporada, artilheiros de liga e de Copa, Chuteira de Ouro, Bola de Ouro, títulos e marcas pela seleção. No fim aparece a ordem real com os números. De vez em quando volta uma categoria clássica (clube, seleção, liga).', 'Ajuda: uma vez por partida, revela um impostor.', 'Fácil: craques conhecidos, clubes famosos e categorias amplas; nas perguntas de números, os impostores são do mesmo contexto (mesma seleção, clube ou liga; atacantes nas listas de gols), mas bem conhecidos. Normal: jogadores conhecidos das principais ligas, clubes famosos e campeões da Champions, impostores da mesma geração. Difícil: jogadores das principais ligas e lendas, campeões europeus e clubes da 1ª divisão, impostores parecidos. Lendário: impostores "quase" (jogou a Copa mas não marcou, ficou fora do top 10, chegou perto da marca).', 'Estilo Normal: marque todos e confirme. Um por um: cada toque vale, e um impostor encerra o jogo.'],
-      en: ['Today’s category is in the middle with 10 players around it (only players from 1990 on).', 'Pick everyone who fits the category. Those who don’t are impostors. Most days the question is about real numbers: most appearances or goals in a competition, 50-goal seasons, league and World Cup top scorers, Golden Shoe, Ballon d’Or, titles and international records. At the end you see the real order with the numbers. Now and then a classic category (club, nation, league) comes back.', 'Help: once per game, reveals one impostor.', 'Easy: famous players and clubs and broad categories; in number questions, impostors come from the same context (same nation, club or league; forwards in goal lists), but well known. Normal: well-known top-league players, famous clubs and Champions League winners, impostors from the same generation. Hard: top-league players and legends, European winners and top-flight clubs, similar impostors. Legendary: "nearly" impostors (played the World Cup but didn’t score, just outside the top 10, close to the mark).', 'Normal style: pick them all and confirm. One by one: every tap counts and one impostor ends the game.'],
-      es: ['La categoría del día está en el centro con 10 jugadores alrededor (solo jugadores de 1990 en adelante).', 'Marca a todos los que encajan en la categoría. Los que no, son impostores. Casi todos los días la pregunta es sobre números reales: más partidos o goles en una competición, temporadas de 50 goles, máximos goleadores de liga y de Mundial, Bota de Oro, Balón de Oro, títulos y marcas con la selección. Al final aparece el orden real con los números. A veces vuelve una categoría clásica (club, selección, liga).', 'Ayuda: una vez por partida, revela un impostor.', 'Fácil: cracks y clubes famosos y categorías amplias; en las preguntas de números, los impostores son del mismo contexto (misma selección, club o liga; delanteros en las listas de goles), pero muy conocidos. Normal: jugadores conocidos de las grandes ligas, clubes famosos y campeones de la Champions, impostores de la misma generación. Difícil: jugadores de las grandes ligas y leyendas, campeones europeos y clubes de primera, impostores parecidos. Legendario: impostores "casi" (jugó el Mundial pero no marcó, se quedó fuera del top 10, rozó la marca).', 'Estilo Normal: márcalos todos y confirma. Uno a uno: cada toque cuenta y un impostor termina el juego.'],
+      pt: ['A categoria do dia fica no centro e 10 jogadores aparecem em volta (só jogadores de 1990 para cá).', 'Marque todos que pertencem à categoria. Quem não pertence é impostor. Quase todo dia a pergunta é sobre números de verdade: mais jogos ou gols numa competição, quem fez 50 gols numa temporada, artilheiros de liga e de Copa, Chuteira de Ouro, Bola de Ouro, títulos e marcas pela seleção. No fim aparece a ordem real com os números. Cada pergunta tem uma nota de dificuldade (quão conhecidos são os certos, a época, quantas armadilhas existem) e cada nível pega a sua faixa; o tema nunca é o mesmo da Pirâmide do dia. No Fácil e no Normal, de vez em quando volta uma categoria clássica (clube, seleção, liga); Difícil e Lendário são sempre perguntas de números.', 'Ajuda: uma vez por partida, revela um impostor.', 'Fácil: craques conhecidos, clubes famosos e categorias amplas; nas perguntas de números, os impostores são do mesmo contexto (mesma seleção, clube ou liga; atacantes nas listas de gols), mas bem conhecidos. Normal: jogadores conhecidos das principais ligas, clubes famosos e campeões da Champions, impostores da mesma geração. Difícil: perguntas complexas (4 Copas, gol em 3 Copas, recordes de clubes, artilheiros de liga…) e impostores que chegam perto da marca e fazem sentido — nunca alguém que se elimina sozinho, como um estreante numa pergunta de Copas. Lendário: as perguntas mais difíceis (5 Copas, 150 jogos pela seleção…) e os impostores mais "quase".', 'Estilo Normal: marque todos e confirme. Um por um: cada toque vale, e um impostor encerra o jogo.'],
+      en: ['Today’s category is in the middle with 10 players around it (only players from 1990 on).', 'Pick everyone who fits the category. Those who don’t are impostors. Most days the question is about real numbers: most appearances or goals in a competition, 50-goal seasons, league and World Cup top scorers, Golden Shoe, Ballon d’Or, titles and international records. At the end you see the real order with the numbers. Every question has a difficulty score (how well known the right players are, the era, how many traps exist) and each level takes its own band; the topic is never the same as the day’s Pyramid. On Easy and Normal a classic category (club, nation, league) comes back now and then; Hard and Legendary are always number questions.', 'Help: once per game, reveals one impostor.', 'Easy: famous players and clubs and broad categories; in number questions, impostors come from the same context (same nation, club or league; forwards in goal lists), but well known. Normal: well-known top-league players, famous clubs and Champions League winners, impostors from the same generation. Hard: complex questions (4 World Cups, scored at 3 World Cups, club records, league top scorers…) and impostors who come close to the mark and make sense — never someone who rules himself out, like a debutant in a World Cups question. Legendary: the hardest questions (5 World Cups, 150 caps…) and the closest "nearly" impostors.', 'Normal style: pick them all and confirm. One by one: every tap counts and one impostor ends the game.'],
+      es: ['La categoría del día está en el centro con 10 jugadores alrededor (solo jugadores de 1990 en adelante).', 'Marca a todos los que encajan en la categoría. Los que no, son impostores. Casi todos los días la pregunta es sobre números reales: más partidos o goles en una competición, temporadas de 50 goles, máximos goleadores de liga y de Mundial, Bota de Oro, Balón de Oro, títulos y marcas con la selección. Al final aparece el orden real con los números. Cada pregunta tiene una nota de dificultad (lo conocidos que son los correctos, la época, cuántas trampas hay) y cada nivel toma su franja; el tema nunca es el mismo de la Pirámide del día. En Fácil y Normal a veces vuelve una categoría clásica (club, selección, liga); Difícil y Legendario son siempre preguntas de números.', 'Ayuda: una vez por partida, revela un impostor.', 'Fácil: cracks y clubes famosos y categorías amplias; en las preguntas de números, los impostores son del mismo contexto (misma selección, club o liga; delanteros en las listas de goles), pero muy conocidos. Normal: jugadores conocidos de las grandes ligas, clubes famosos y campeones de la Champions, impostores de la misma generación. Difícil: preguntas complejas (4 Mundiales, gol en 3 Mundiales, récords de clubes, máximos goleadores de liga…) e impostores que rozan la marca y tienen sentido — nunca alguien que se descarta solo, como un debutante en una pregunta de Mundiales. Legendario: las preguntas más difíciles (5 Mundiales, 150 partidos con la selección…) y los impostores más "casi".', 'Estilo Normal: márcalos todos y confirma. Uno a uno: cada toque cuenta y un impostor termina el juego.'],
     },
     options: [
       MF.levelOpt(),
@@ -275,7 +365,41 @@
       // para ninguém ser eliminado só por ser zagueiro, de outro país ou de outra época. O nível só muda o quanto ele é parecido.
       const PLAUS = MF.today() >= 6 && cat.near; // desde 18/10 também nas categorias clássicas
       const fit = PLAUS ? outs.filter(cat.near) : null;
-      if (fit && fit.length >= need) {
+      let scored = null;
+      if (V7() && fit && fit.length >= need) { // perguntas de números e categorias clássicas
+        // Desde 19/10/2026: impostor ponderado por plausibilidade. Cada candidato (já do contexto da pergunta) ganha pontos por
+        // chegar perto da marca (close), ser da mesma época dos certos, da mesma seleção/liga e tão conhecido quanto eles.
+        // Difícil e Lendário: nada que se elimine sozinho — pergunta de carreira (Copas, jogos, gols…) não aceita carreira curta
+        // demais (ex.: estreante da última Copa numa pergunta de 5 Copas); pergunta de uma edição exige estar em atividade no ano.
+        const mids = good.map(midY).sort((a, b) => a - b);
+        const eraT = cat.year || mids[Math.floor(mids.length / 2)];
+        const gFame = good.reduce((s, p) => s + fame(p), 0) / good.length;
+        const minLen = Math.min(...good.map(cLen));
+        const fair = (p) => (cat.year ? p.first <= cat.year && p.lastY >= cat.year : !cat.career || cLen(p) >= Math.max(4, 0.6 * minLen));
+        const score = (p) => (cat.close ? 3 * cat.close(p) : 1.5) + 2 * clamp(1 - Math.abs(midY(p) - eraT) / 12)
+          + (good.some((g) => g.nat === p.nat) ? 1 : 0) + (good.some((g) => g.leagues.some((l) => p.leagues.includes(l))) ? 0.5 : 0)
+          + clamp(1 - Math.abs(fame(p) - gFame) / 12);
+        let pool = lvl === 'hard' || lvl === 'legend' ? fit.filter(fair) : fit;
+        if (pool.length < need) pool = fit;
+        const ranked = pool.map((p) => ({ p, s: score(p) })).sort((a, b) => b.s - a.s || b.p.r - a.p.r);
+        const famousP = (p) => p.famous || p.legend || p.bo || p.r >= 84;
+        let win;
+        if (lvl === 'easy') {
+          // Fácil pode facilitar: do contexto, conhecidos, mas os menos traiçoeiros
+          const f = ranked.filter((x) => famousP(x.p)).reverse();
+          win = (f.length >= need ? f : ranked.slice().reverse()).slice(0, Math.max(need * 3, 15));
+        } else if (lvl === 'normal') {
+          // Normal: plausíveis, mas conhecidos (nada de nome perdido)
+          const k2 = ranked.filter((x) => fame(x.p) >= gFame - 10);
+          const r2 = k2.length >= need * 2 ? k2 : ranked;
+          win = r2.slice(Math.floor(r2.length * 0.15)).slice(0, Math.max(need * 4, 28));
+        }
+        else if (lvl === 'hard') win = ranked.slice(0, Math.max(need + 6, 20));
+        else win = ranked.slice(0, Math.max(need + 3, 13));
+        if (win.length < need) win = ranked;
+        scored = win.map((x) => x.p);
+        src = scored;
+      } else if (fit && fit.length >= need) {
         const famous = (p) => p.famous || p.legend || p.bo || p.r >= 84;
         const tiers = {
           easy: [fit.filter(famous), fit],
