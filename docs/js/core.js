@@ -139,7 +139,7 @@
   try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.startsWith(LS + 'd2:')) localStorage.removeItem(k); } } catch (e) { /* sem armazenamento */ }
   // versão do estado do dia por jogo: mudar a versão zera o progresso do dia só daquele jogo
   // (16/10/2026: Modo impostor e Jogou por onde? mudaram no meio do dia, a pedido do usuário)
-  MF.STATE_VER = { 'modo-impostor': '#5', 'jogou-por-onde': '#2' };
+  MF.STATE_VER = { 'modo-impostor': '#5', 'jogou-por-onde': '#2', 'desafio-do-elenco': '#2' }; // #2: revelação gradual (18/10/2026)
   const gk = (game) => game + (MF.STATE_VER[game] || '');
   MF.dayState = (game, lvl) => MF.load('d3:' + gk(game) + ':' + (lvl || 'normal') + ':' + MF.today(), null);
   MF.saveDayState = (game, st) => MF.save('d3:' + gk(game) + ':' + ((st && st.opts && st.opts.mode) || 'normal') + ':' + MF.today(), st);
