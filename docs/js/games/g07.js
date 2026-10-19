@@ -1,251 +1,298 @@
-/* Jogo 7 — Bingo FUT10 (no estilo Futbol11 Bingo)
-   Cartela 4×3 com 12 categorias (7 clubes, 3 seleções, 1 liga e 1 prêmio que se reveza: Bola de Ouro, Copa do Mundo, Libertadores e Eurocopa). Os jogadores chegam um por vez,
-   craques e jogadores conhecidos de várias épocas — alguns sem ligação nenhuma com a cartela.
-   Sem tempo. Erros livres: encaixe errado não tira a carta. Modo Livre (pulos à vontade) ou 5 pulos.
-   A cartela sempre tem solução. */
+/* Jogo 7 — Desafio do elenco (no estilo Futbol11 SquadSlice; substituiu o Bingo FUT10 em 18/10/2026)
+   Uma rosca com as nacionalidades do elenco de um clube numa temporada: cada fatia é um país, e o tamanho
+   é quantos jogadores daquele país estavam no elenco. Adivinhe o clube em 3 tentativas.
+   1ª tentativa: ~30% do elenco à mostra; depois de errar ou pular: ~60%; última tentativa: a rosca inteira.
+   Os países aparecem inteiros (fatia toda ou nada). Revelação: Aleatória ou Sentido horário (das maiores fatias para as menores).
+   Dados: data/squads.json (tools/build_squads.py) — 2026/27 pelos elencos reais da temporada; anteriores pelas passagens do Transfermarkt. */
 (function () {
   'use strict';
   const MF = window.MF, h = MF.h, t = (k) => MF.t(k);
-  const FIRST = 17; // primeiras cartas: 12 da solução + 2 que encaixam + 3 sem ligação
-  const DECK = 90;
-  // por dificuldade: pulos, nota mínima dos jogadores, clubes com quantos jogadores no baralho, % de cartas sem ligação
-  const LV = { easy: [Infinity, 86, 30, 0.2], normal: [Infinity, 82, 18, 0.3], hard: [5, 80, 14, 0.3], legend: [3, 78, 10, 0.4] };
-  const LEAGUES = ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1', 'Brasileirão', 'Liga Portugal', 'Saudi Pro League', 'MLS', 'Süper Lig'];
-  const LG_SHORT = { 'Premier League': 'PL', 'La Liga': 'LL', 'Serie A': 'SA', 'Bundesliga': 'BL', 'Ligue 1': 'L1', 'Brasileirão': 'BR', 'Liga Portugal': 'LP', 'Saudi Pro League': 'SPL', 'MLS': 'MLS', 'Süper Lig': 'SL' };
-  // os 4 prêmios se revezam: um por dia, sempre na mesma ordem
-  const AWARD_ORDER = ['bow', 'wc', 'lib', 'euro'];
-  const AWARDS = {
-    bow: { pt: 'Vencedor da Bola de Ouro', en: 'Ballon d’Or winner', es: 'Ganador del Balón de Oro', fit: (p) => p.bow, ico: 'ball' },
-    wc: { pt: 'Campeão da Copa do Mundo', en: 'World Cup winner', es: 'Campeón del Mundial', fit: (p) => p.wc, ico: 'wc' },
-    lib: { pt: 'Campeão da Libertadores', en: 'Copa Libertadores winner', es: 'Campeón de la Libertadores', fit: (p) => p.lib, ico: 'lib' },
-    euro: { pt: 'Campeão da Eurocopa', en: 'Euro winner', es: 'Campeón de la Eurocopa', fit: (p) => p.euro, ico: 'euro' },
+  const TRIES = 3;
+  const SHOW = [0.3, 0.6, 1];
+  const NS = 'http://www.w3.org/2000/svg';
+  const TX = {
+    pt: { guess: 'ADIVINHE O TIME', players: (n) => n + (n === 1 ? ' jogador' : ' jogadores'), hidden: 'País escondido', shown: 'Elenco à mostra', attempt: 'Tentativa', random: 'Aleatória', clockwise: 'Sentido horário', reveal: 'Revelação', skipped: 'Pulou', tapSlice: 'Toque numa fatia para ver os jogadores.', tapCount: 'Toque numa fatia para ver quantos jogadores.', help: (c) => 'Ajuda: o clube é de ' + c, gotIt: (n) => 'Acertou na ' + n + 'ª tentativa', answer: 'O clube era', wrongClub: 'Não é o', loading: 'Carregando elencos…', squad: 'Elenco' },
+    en: { guess: 'GUESS THE TEAM', players: (n) => n + (n === 1 ? ' player' : ' players'), hidden: 'Hidden country', shown: 'Squad shown', attempt: 'Guess', random: 'Random', clockwise: 'Clockwise', reveal: 'Reveal', skipped: 'Skipped', tapSlice: 'Tap a slice to see the players.', tapCount: 'Tap a slice to see how many players.', help: (c) => 'Help: the club is from ' + c, gotIt: (n) => 'Got it on guess ' + n, answer: 'The club was', wrongClub: 'Not', loading: 'Loading squads…', squad: 'Squad' },
+    es: { guess: 'ADIVINA EL EQUIPO', players: (n) => n + (n === 1 ? ' jugador' : ' jugadores'), hidden: 'País oculto', shown: 'Plantilla visible', attempt: 'Intento', random: 'Aleatoria', clockwise: 'Sentido horario', reveal: 'Revelación', skipped: 'Saltó', tapSlice: 'Toca una porción para ver los jugadores.', tapCount: 'Toca una porción para ver cuántos jugadores.', help: (c) => 'Ayuda: el club es de ' + c, gotIt: (n) => 'Acertaste en el intento ' + n, answer: 'El club era', wrongClub: 'No es', loading: 'Cargando plantillas…', squad: 'Plantilla' },
   };
-  const ICO = {
-    // Bola de Ouro: bola dourada sobre a base
-    ball: '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="19" r="14" fill="currentColor"/><path d="M24 10.5l6.2 4.5-2.4 7.3h-7.6l-2.4-7.3z" fill="#0d0c09" opacity=".5"/><path d="M11 16l5-1M37 16l-5-1M18 29l2-6M30 29l-2-6" stroke="#0d0c09" stroke-width="1.5" opacity=".4"/><path d="M20 33h8v4h-8z" fill="currentColor"/><path d="M14 38h20l2 6H12z" fill="currentColor"/></svg>',
-    // Copa do Mundo: duas figuras segurando o globo
-    wc: '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="10" r="8" fill="currentColor"/><path d="M17 15c-1 6 2 10 5 13l-2 9h8l-2-9c3-3 6-7 5-13-2 3-5 4-5 4s-3-1-5-4z" fill="currentColor"/><path d="M18 37h12l1 3H17z" fill="currentColor"/><path d="M15 41h18l1 4H14z" fill="#3ddc8a"/></svg>',
-    // Libertadores: taça alta com a figura no topo e base larga
-    lib: '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="5" r="3" fill="currentColor"/><path d="M22 8h4l1 5h-6z" fill="currentColor"/><path d="M16 13h16c0 7-3 12-8 13-5-1-8-6-8-13z" fill="currentColor"/><path d="M22 26h4v7h-4z" fill="currentColor"/><path d="M16 33h16v4H16z" fill="currentColor"/><path d="M13 38h22v6H13z" fill="currentColor"/><path d="M15 40h18" stroke="#0d0c09" stroke-width="1.2" opacity=".45"/></svg>',
-    // Eurocopa: taça de alças grandes (Henri Delaunay)
-    euro: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 5h14v20c0 3-3 5-7 5s-7-2-7-5z" fill="currentColor"/><path d="M17 8c-6 0-8 4-8 7s3 6 8 6M31 8c6 0 8 4 8 7s-3 6-8 6" fill="none" stroke="currentColor" stroke-width="3"/><path d="M21 30h6v6h-6z" fill="currentColor"/><path d="M15 37h18l2 7H13z" fill="currentColor"/></svg>',
-  };
+  const tx = () => TX[MF.lang] || TX.pt;
 
-  // jogadores do bingo: lendas, famosos e jogadores conhecidos (nota 82+), de todas as épocas.
-  // Só entra quem tem a carreira completa na base (começa até os 21 anos), para nenhum "não encaixa" ser injusto.
-  // a partir de 16/10/2026 (MF.isNew): jogadores e clubes seguem o critério do nível (ver levels.js); Lendário mantém a base
-  const NK = (lvl) => lvl + (MF.isNew() && lvl !== 'legend' ? ':n' : '');
+  // ------------------------------------------------------------------ dados
+  let SQ = null, SQP = null;
+  const loadSquads = () => SQP || (SQP = fetch('data/squads.json').then((r) => { if (!r.ok) throw new Error('squads ' + r.status); return r.json(); }).then((d) => (SQ = d.q)));
+  // por nível: Fácil = elencos 2026/27 dos clubes famosos; Normal = 2026/27 dos famosos e campeões da Champions;
+  // Difícil = 2026/27 dos clubes do Difícil + temporadas de 2005/06 em diante dos famosos e campeões da Champions;
+  // Lendário = qualquer elenco (2026/27 e temporadas desde 1995/96)
   function pool(lvl) {
-    MF._bingoPool = MF._bingoPool || {};
-    if (MF._bingoPool[NK(lvl)]) return MF._bingoPool[NK(lvl)];
-    const min = LV[lvl][1];
-    const NEW = MF.isNew() && lvl !== 'legend';
-    const base = MF.data.P.slice(0, MF.CORE_N).filter((p) => MF.era(p) && !p.natGuess && p.st.length && p.born && p.first - p.born <= 21);
-    const out = NEW ? base.filter((p) => MF.playerOk(lvl, p)) : base.filter((p) => p.r >= min || (lvl !== 'easy' && (p.legend || p.famous)));
-    return (MF._bingoPool[NK(lvl)] = out);
+    MF._sqPool = MF._sqPool || {};
+    if (MF._sqPool[lvl]) return MF._sqPool[lvl];
+    const any = (q, l) => q.c.some((i) => MF.clubOk(l, i));
+    const cur = (q) => q.s === 2026;
+    const f = {
+      easy: (q) => cur(q) && any(q, 'easy'),
+      normal: (q) => cur(q) && any(q, 'normal'),
+      hard: (q) => (cur(q) && any(q, 'hard')) || (q.s >= 2005 && any(q, 'normal')),
+      legend: () => true,
+    }[lvl];
+    return (MF._sqPool[lvl] = SQ.filter(f));
   }
-  function catalog(lvl) {
-    MF._bingoCat = MF._bingoCat || {};
-    if (MF._bingoCat[NK(lvl)]) return MF._bingoCat[NK(lvl)];
-    const NEW = MF.isNew() && lvl !== 'legend';
-    const { leagues } = MF.data;
-    const pl = pool(lvl);
-    const cc = new Map(), nc = new Map();
-    for (const p of pl) { for (const c of p.clubs) cc.set(c, (cc.get(c) || 0) + 1); nc.set(p.nat, (nc.get(p.nat) || 0) + 1); }
-    const club = [...cc].filter(([c, n]) => n >= LV[lvl][2] && (!NEW || MF.clubOk(lvl, c))).map(([c]) => ({ type: 'club', id: c, fit: (p) => p.clubs.includes(c) }));
-    const nat = [...nc].filter(([, n]) => n >= 15).map(([n]) => ({ type: 'nat', id: n, fit: (p) => p.nat === n }));
-    const lg = [];
-    Object.entries(leagues).forEach(([id, name]) => {
-      if (!LEAGUES.includes(name)) return;
-      const lid = +id;
-      const c = { type: 'league', id: lid, name, fit: (p) => p.leagues.includes(lid) || p.leagues.includes(id) };
-      if (pl.filter(c.fit).length >= 18) lg.push(c);
-    });
-    const aw = Object.fromEntries(Object.entries(AWARDS).map(([k, a]) => [k, { type: 'award', id: k, fit: a.fit }]));
-    return (MF._bingoCat[NK(lvl)] = { club, nat, lg, aw });
+  const season = (q) => (q.cal ? String(q.s) : q.s + '/' + String((q.s + 1) % 100).padStart(2, '0'));
+
+  // cor de cada país tirada da própria bandeira (a cor mais viva e frequente), clareada para aparecer no fundo escuro
+  const FALL = ['#3d7be0', '#e0533d', '#3ddc8a', '#ffd400', '#b06ad8', '#ef8a2e', '#2fc2c9', '#d8487a'];
+  const colCache = {};
+  function flagColor(nat, done) {
+    if (colCache[nat]) return colCache[nat];
+    let hsh = 0; for (const ch of nat) hsh = (hsh * 31 + ch.charCodeAt(0)) | 0;
+    const fb = FALL[Math.abs(hsh) % FALL.length];
+    const code = MF.data.flags.map[nat], src = code && MF.data.flags.img[code];
+    if (!src) return (colCache[nat] = fb);
+    colCache[nat] = fb;
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const cv = document.createElement('canvas'); cv.width = 20; cv.height = 14;
+        const g = cv.getContext('2d'); g.drawImage(img, 0, 0, 20, 14);
+        const px = g.getImageData(0, 0, 20, 14).data;
+        const B = new Map();
+        for (let i = 0; i < px.length; i += 4) {
+          const r = px[i], gg = px[i + 1], b = px[i + 2];
+          const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+          const sat = mx ? (mx - mn) / mx : 0;
+          const k = (r >> 5) + ',' + (gg >> 5) + ',' + (b >> 5);
+          const e = B.get(k) || { w: 0, r: 0, g: 0, b: 0, n: 0 };
+          e.w += 0.12 + sat; e.r += r; e.g += gg; e.b += b; e.n++;
+          B.set(k, e);
+        }
+        const best = [...B.values()].sort((a, b) => b.w - a.w)[0];
+        let [r, gg, b] = [best.r / best.n, best.g / best.n, best.b / best.n];
+        // HSL: garante luminosidade entre 38% e 62% para a fatia não sumir no fundo
+        r /= 255; gg /= 255; b /= 255;
+        const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+        let hh = 0, s = 0, l = (mx + mn) / 2;
+        if (mx !== mn) {
+          const d = mx - mn;
+          s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+          hh = mx === r ? (gg - b) / d + (gg < b ? 6 : 0) : mx === gg ? (b - r) / d + 2 : (r - gg) / d + 4;
+          hh *= 60;
+        }
+        l = Math.min(0.62, Math.max(0.38, l));
+        colCache[nat] = 'hsl(' + Math.round(hh) + ' ' + Math.round(s * 100) + '% ' + Math.round(l * 100) + '%)';
+        done && done();
+      } catch (e) { /* fica a cor reserva */ }
+    };
+    img.src = src;
+    return fb;
   }
 
-  // cartela + baralho do dia: as primeiras 17 cartas bastam (12 formam um encaixe perfeito, 3 não servem em nada);
-  // depois o baralho continua com ~70% de jogadores que encaixam em algo e ~30% sem ligação
-  function build(seed, awardKey, lvl) {
-    lvl = lvl || 'normal';
-    const { club, nat, lg, aw } = catalog(lvl);
-    const pl = pool(lvl);
-    const rnd = MF.rng('bingo3:' + lvl + ':' + seed);
-    for (let tries = 0; tries < 50; tries++) {
-      // como no Futbol11: 7 clubes, 3 seleções (bandeiras), 1 liga e 1 prêmio
-      const award = aw[awardKey] || aw.bow;
-      const cats = MF.shuffle([...MF.sample(club, 7, rnd), ...MF.sample(nat, 3, rnd), ...MF.sample(lg, 1, rnd), award], rnd);
-      const order = cats.map((c, i) => i).sort((x, y) => pl.filter(cats[x].fit).length - pl.filter(cats[y].fit).length);
-      const used = new Set(), sol = [];
-      let ok = true;
-      for (const i of order) {
-        // prefere jogadores que não sejam só os mais premiados
-        const cand = pl.filter((p) => cats[i].fit(p) && !used.has(p.i));
-        if (!cand.length) { ok = false; break; }
-        const p = MF.pick(cand, rnd);
-        used.add(p.i); sol.push(p.i);
-      }
-      if (!ok) continue;
-      const fit = MF.shuffle(pl.filter((p) => !used.has(p.i) && cats.some((c) => c.fit(p))), rnd);
-      const none = MF.shuffle(pl.filter((p) => !cats.some((c) => c.fit(p))), rnd);
-      if (none.length < 20) continue;
-      const take = (arr, n) => { const out = []; while (out.length < n && arr.length) { const p = arr.shift(); if (!used.has(p.i)) { used.add(p.i); out.push(p.i); } } return out; };
-      const awardFit = fit.filter((p) => award.fit(p));
-      const first = MF.shuffle([...sol, ...take(awardFit.length ? awardFit : fit, 1), ...take(fit, 1), ...take(none, 3)], rnd);
-      const rest = [];
-      while (rest.length < DECK - FIRST && (fit.length || none.length)) {
-        const src = rnd() < LV[lvl][3] ? none : fit;
-        const got = take(src.length ? src : (src === none ? fit : none), 1);
-        if (got.length) rest.push(got[0]);
-      }
-      return { cats, deck: [...first, ...rest] };
-    }
-    return null;
+  // ------------------------------------------------------------------ rosca
+  const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+  const pt = (cx, cy, r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  function arc(cx, cy, R, r, a0, a1) {
+    const big = a1 - a0 > Math.PI ? 1 : 0;
+    const [x0, y0] = pt(cx, cy, R, a0), [x1, y1] = pt(cx, cy, R, a1), [x2, y2] = pt(cx, cy, r, a1), [x3, y3] = pt(cx, cy, r, a0);
+    return 'M' + x0 + ' ' + y0 + 'A' + R + ' ' + R + ' 0 ' + big + ' 1 ' + x1 + ' ' + y1 + 'L' + x2 + ' ' + y2 + 'A' + r + ' ' + r + ' 0 ' + big + ' 0 ' + x3 + ' ' + y3 + 'Z';
   }
 
   MF.registerGame({
-    num: 7, slug: 'bingo-fut10',
-    tag: () => t('noTimer') + ' ∞',
+    num: 7, slug: 'desafio-do-elenco',
+    chances: TRIES,
     rules: {
-      pt: ['Uma cartela com 12 casas: 7 clubes, 3 seleções, 1 liga e 1 título que se reveza a cada dia (Bola de Ouro, Copa do Mundo, Libertadores e Eurocopa). Os jogadores aparecem um por vez, com foto e nome: craques e jogadores conhecidos de várias épocas — e alguns não têm ligação nenhuma com a cartela.', 'Toque na casa em que o jogador se encaixa ou pule. Vale a carreira inteira: o clube ou a liga em qualquer época; seleção é a que ele defende. Cada jogador preenche uma casa só.', 'Sem limite de tempo e erros livres: encaixe errado não tira o jogador, tente outra casa ou pule. Preencha as 12 casas para vencer. Só jogadores de 1990 para cá.', 'Ajuda: uma vez por partida, destaca as casas em que o jogador da vez encaixa.', 'Fácil: craques conhecidos na mídia, clubes famosos e pulos à vontade. Normal: jogadores conhecidos das principais ligas, clubes famosos e campeões da Champions, pulos à vontade. Difícil: jogadores das principais ligas e lendas, campeões da Champions e da Europa League e clubes da 1ª divisão, só 5 pulos. Lendário: só 3 pulos e mais cartas sem ligação. Com pulos limitados: se acabarem e aparecer alguém que não serve em nenhuma casa livre, o jogo termina.'],
-      en: ['A card with 12 squares: 7 clubs, 3 nations, 1 league and 1 title that rotates every day (Ballon d’Or, World Cup, Libertadores and Euro). Players appear one at a time, with photo and name: stars and well-known players from every era — and some have no link to the card at all.', 'Tap the square where the player fits or skip. The whole career counts: the club or league at any time; nation is the one he represents. Each player fills one square only.', 'No time limit and unlimited mistakes: a wrong square keeps the player, try another or skip. Fill all 12 squares to win. Only players from 1990 on.', 'Help: once per game, highlights the squares where the current player fits.', 'Easy: media-famous stars, famous clubs and unlimited skips. Normal: well-known top-league players, famous clubs and Champions League winners, unlimited skips. Hard: top-league players and legends, Champions League and Europa League winners and top-flight clubs, only 5 skips. Legendary: only 3 skips and more unrelated cards. With limited skips: if they run out and a player fits no open square, the game ends.'],
-      es: ['Un cartón con 12 casillas: 7 clubes, 3 selecciones, 1 liga y 1 título que se alterna cada día (Balón de Oro, Mundial, Libertadores y Eurocopa). Los jugadores aparecen de uno en uno, con foto y nombre: cracks y jugadores conocidos de todas las épocas — y algunos no tienen relación con el cartón.', 'Toca la casilla en la que encaja el jugador o salta. Vale toda la carrera: el club o la liga en cualquier época; la selección es la que representa. Cada jugador llena una sola casilla.', 'Sin límite de tiempo y fallos libres: una casilla equivocada no quita al jugador, prueba otra o salta. Llena las 12 casillas para ganar. Solo jugadores de 1990 en adelante.', 'Ayuda: una vez por partida, resalta las casillas en las que encaja el jugador de turno.', 'Fácil: cracks conocidos en los medios, clubes famosos y saltos ilimitados. Normal: jugadores conocidos de las grandes ligas, clubes famosos y campeones de la Champions, saltos ilimitados. Difícil: jugadores de las grandes ligas y leyendas, campeones de la Champions y la Europa League y clubes de primera, solo 5 saltos. Legendario: solo 3 saltos y más cartas sin relación. Con saltos limitados: si se acaban y aparece alguien que no encaja en ninguna casilla libre, el juego termina.'],
+      pt: ['Uma rosca com as nacionalidades do elenco de um clube numa temporada (a temporada aparece no meio). Cada fatia é um país; quanto maior a fatia, mais jogadores daquele país no elenco.', 'Digite e escolha o clube. Você tem 3 tentativas: na 1ª, cerca de 30% do elenco aparece; depois de errar ou pular, cerca de 60%; na última, a rosca inteira. Os países aparecem inteiros.', 'Revelação Aleatória (países em ordem sorteada) ou Sentido horário (das maiores fatias para as menores). Toque numa fatia para ver quantos jogadores; no fim, toque para ver os nomes.', 'Fácil: elencos 2026/27 dos clubes famosos. Normal: elencos 2026/27 dos famosos e dos campeões da Champions. Difícil: elencos 2026/27 dos clubes conhecidos da 1ª divisão e temporadas desde 2005/06 dos grandes. Lendário: qualquer elenco, desde 1995/96.', 'Ajuda: uma vez por partida, mostra o país do clube. Dica: preste atenção na temporada — uma nacionalidade rara pode entregar o time.'],
+      en: ['A donut with the nationalities of a club’s squad in one season (the season is in the middle). Each slice is a country; the bigger the slice, the more players from that country.', 'Type and pick the club. You have 3 guesses: on the 1st, about 30% of the squad is shown; after a miss or skip, about 60%; on the last, the whole donut. Countries are revealed whole.', 'Random reveal (countries in random order) or Clockwise (biggest slices first). Tap a slice to see how many players; at the end, tap to see the names.', 'Easy: 2026/27 squads of famous clubs. Normal: 2026/27 squads of famous clubs and Champions League winners. Hard: 2026/27 squads of well-known top-flight clubs plus seasons since 2005/06 of the big ones. Legendary: any squad since 1995/96.', 'Help: once per game, shows the club’s country. Tip: mind the season — one rare nationality can give the team away.'],
+      es: ['Una dona con las nacionalidades de la plantilla de un club en una temporada (la temporada aparece en el centro). Cada porción es un país; cuanto más grande, más jugadores de ese país.', 'Escribe y elige el club. Tienes 3 intentos: en el 1º se ve cerca del 30% de la plantilla; tras fallar o saltar, cerca del 60%; en el último, la dona entera. Los países aparecen enteros.', 'Revelación Aleatoria (países en orden sorteado) o Sentido horario (de las porciones más grandes a las más pequeñas). Toca una porción para ver cuántos jugadores; al final, toca para ver los nombres.', 'Fácil: plantillas 2026/27 de los clubes famosos. Normal: plantillas 2026/27 de los famosos y campeones de la Champions. Difícil: plantillas 2026/27 de clubes conocidos de primera y temporadas desde 2005/06 de los grandes. Legendario: cualquier plantilla desde 1995/96.', 'Ayuda: una vez por partida, muestra el país del club. Consejo: fíjate en la temporada — una nacionalidad rara puede delatar al equipo.'],
     },
-    options: [MF.levelOpt()],
-    preview() { return h('div', { class: 'pv-grid pv-bingo' }, Array.from({ length: 12 }, (_, i) => h('b', { class: i % 5 === 0 ? 'on' : '' }))); },
+    options: [
+      MF.levelOpt(),
+      { key: 'reveal', label: () => tx().reveal, def: 'random', choices: () => [{ v: 'random', label: tx().random }, { v: 'cw', label: tx().clockwise }] },
+      MF.timerOpt([0, 120, 90, 60]),
+    ],
+    preview() {
+      const s = el('svg', { viewBox: '0 0 120 120', class: 'pv-donut' });
+      const parts = [9, 5, 4, 3, 2, 2, 1, 1, 1, 1];
+      const tot = parts.reduce((a, b) => a + b, 0);
+      let a = -Math.PI / 2;
+      const on = [0, 2, 5];
+      parts.forEach((n, i) => {
+        const a1 = a + (n / tot) * Math.PI * 2;
+        s.appendChild(el('path', { d: arc(60, 60, 56, 32, a, a1), class: on.includes(i) ? 'on' + i : '' }));
+        a = a1;
+      });
+      return s;
+    },
     play(board, ctx) {
-      const { P, clubs } = MF.data;
+      if (!SQ) {
+        const wait = h('p', { class: 'loading' }, tx().loading);
+        board.appendChild(wait);
+        loadSquads().then(() => { wait.remove(); this.play(board, ctx); }).catch(() => { wait.textContent = t('loadError'); });
+        return;
+      }
+      const { clubs } = MF.data;
       const st = ctx.state;
       const lvl = MF.level(st);
-      const SKIPS = LV[lvl][0];
-      const five = SKIPS < Infinity;
-      const no = MF.dailyPick(MF.isNew() ? 'g7-bingo5' : 'g7-bingo4', lvl, () => [...Array(1000).keys()]);
-      const awardKey = AWARD_ORDER[((MF.today() % 4) + 4) % 4];
-      let B = build(no, awardKey, lvl);
-      for (let k = 1; !B && k < 10; k++) B = build(no + ':' + k, awardKey, lvl);
-      const { cats, deck } = B;
-      st.cells = st.cells || Array(12).fill(null);
-      st.k = st.k || 0; // posição no baralho
-      st.miss = st.miss || 0;
-      st.skips = st.skips || 0;
-      st.tried = st.tried || []; // casas já tentadas com o jogador atual
-      const lang = MF.lang;
+      const L = tx();
+      const q = MF.dailyPick('g7-elenco1', lvl, pool, (x) => x.c[0]);
+      const names = new Set(q.c.map((i) => MF.norm(clubs[i].n)));
+      const isAnswer = (ci) => q.c.includes(ci) || names.has(MF.norm(clubs[ci].n));
+      const club = clubs[q.c[0]];
+      const slices = q.n.map(([nat, pl]) => ({ nat, pl, n: pl.length }));
+      const total = slices.reduce((a, s) => a + s.n, 0);
+      // ordem da revelação: sentido horário = das maiores fatias (que já começam no topo) para as menores; aleatória = sorteada, igual para todos
+      const order = st.opts.reveal === 'cw' ? slices.map((_, i) => i) : MF.shuffle(slices.map((_, i) => i), MF.rng('g7-elenco:' + q.c[0] + ':' + q.s));
+      st.g = st.g || []; // tentativas: índice do clube ou -1 (pulou)
+      let sel = null;
 
-      const label = (c) => (c.type === 'club' ? clubs[c.id].n : c.type === 'nat' ? MF.country(c.id) : c.type === 'league' ? c.name : AWARDS[c.id][lang] || AWARDS[c.id].pt);
-      function icon(c) {
-        if (c.type === 'club') return MF.crest(clubs[c.id].n, 46);
-        if (c.type === 'nat') return MF.flag(c.id, 'lg');
-        if (c.type === 'league') return h('span', { class: 'bg-lg' }, LG_SHORT[c.name] || c.name.slice(0, 3));
-        const s = h('span', { class: 'bg-aw' }); s.innerHTML = ICO[AWARDS[c.id].ico]; return s;
-      }
-
-      const cardBox = h('div', { class: 'bg-card', 'aria-live': 'polite' });
-      const grid = h('div', { class: 'bg-grid' });
-      const missPill = h('span', { class: 'pill' });
-      const cellPill = h('span', { class: 'pill' });
-      const skipBtn = h('button', { class: 'btn btn-ghost bg-skip', type: 'button', onclick: () => skip() });
-      const flag = h('button', { class: 'btn btn-ghost flag-btn', type: 'button', 'aria-label': t('giveUp'), title: t('giveUp'), onclick: () => end(false) }, MF.icon('flag'));
-      const filled = () => st.cells.filter((x) => x != null).length;
-      // baralho sem fim: depois das 90 cartas, volta ao começo pulando quem já está na cartela
-      const cur = () => {
-        for (let n = 0; n < deck.length; n++) { const pi = deck[(st.k + n) % deck.length]; if (!st.cells.includes(pi)) { if (n) st.k += n; return P[pi]; } }
-        return null;
-      };
-      const skipsLeft = () => SKIPS - st.skips;
-      const fitsOpen = (p) => cats.some((c, i) => st.cells[i] == null && c.fit(p));
-
-      function paint(pop, bad) {
-        const done = ctx.finished();
-        const p = done ? null : cur();
-        MF.clear(cardBox);
-        if (p) {
-          cardBox.appendChild(h('div', { class: 'bg-player pop' }, MF.photo(p.n, p.nat, 96), h('strong', null, p.n)));
-          skipBtn.textContent = t('skip') + (five ? ' (' + skipsLeft() + ')' : '');
-          skipBtn.disabled = five && skipsLeft() <= 0;
-          cardBox.appendChild(skipBtn);
-        } else if (done) {
-          cardBox.appendChild(h('p', { class: 'bg-end' }, filled() + '/12'));
-        }
-        MF.clear(grid);
-        cats.forEach((c, i) => {
-          const pi = st.cells[i];
-          let inner;
-          if (pi != null) inner = [MF.photo(P[pi].n, P[pi].nat, 40), h('span', { class: 'bg-name' }, P[pi].n), h('span', { class: 'bg-cat' }, label(c))];
-          else if (done) {
-            const ex = pool(lvl).filter((q) => c.fit(q) && !st.cells.includes(q.i)).sort((x, y) => y.r - x.r)[0];
-            inner = [icon(c), h('span', { class: 'bg-cat' }, label(c)), ex ? h('span', { class: 'bg-ex' }, ex.n) : null];
-          } else inner = [icon(c), h('span', { class: 'bg-cat' }, label(c))];
-          const tried = !done && pi == null && st.tried.includes(i);
-          const hint = !done && pi == null && p && st.helpPi === p.i && c.fit(p);
-          grid.appendChild(h('button', {
-            type: 'button', class: 'bg-cell' + (pi != null ? ' on' : '') + (pop === i ? ' pop' : '') + (bad === i ? ' bad shake' : tried ? ' bad' : '') + (done && pi == null ? ' miss' : '') + (hint ? ' help-hit' : ''),
-            disabled: done || pi != null, 'aria-label': label(c) + (pi != null ? ' · ' + P[pi].n : ''), onclick: () => place(i),
-          }, inner));
+      // quantos países (na ordem da revelação) aparecem em cada tentativa: o corte que chega mais perto de 30% / 60% do elenco,
+      // sempre pelo menos um país a mais que na tentativa anterior; na última, todos
+      const cuts = (() => {
+        const out = [];
+        let prev = 0;
+        SHOW.forEach((f, k) => {
+          let n = order.length;
+          if (f < 1) {
+            const goal = f * total;
+            let sum = 0; n = 0;
+            for (const i of order) {
+              const nx = sum + slices[i].n;
+              if (n && sum < goal && Math.abs(nx - goal) > Math.abs(sum - goal)) break;
+              if (n && sum >= goal) break;
+              sum = nx; n++;
+            }
+            n = Math.min(order.length - (TRIES - 1 - k), Math.max(n, prev + 1));
+          }
+          out.push((prev = Math.max(1, n)));
         });
-        missPill.textContent = t('misses') + ': ' + st.miss;
-        cellPill.textContent = filled() + '/12' + (five ? ' · ' + t('skipsLeft') + ': ' + skipsLeft() : '');
-      }
-      function advance() {
-        st.k = (st.k + 1) % deck.length;
-        st.tried = [];
-        ctx.save();
-        // 5 pulos: sem pulo e ninguém para essa carta → fim de jogo
-        const p = cur();
-        if (five && skipsLeft() <= 0 && p && !fitsOpen(p)) {
-          MF.toast(t('bingoStuck').replace('{p}', p.n), 'bad');
-          return end(false);
+        return out;
+      })();
+      const shownSet = () => new Set(ctx.finished() ? order : order.slice(0, cuts[Math.min(st.g.length, TRIES - 1)]));
+
+      const chartWrap = h('div', { class: 'sq-chart' });
+      const info = h('div', { class: 'sq-info', 'aria-live': 'polite' });
+      const guesses = h('ol', { class: 'sq-guesses' });
+      const pctPill = h('span', { class: 'pill' });
+      const triesPill = h('span', { class: 'pill' });
+      const answerBox = h('div', { class: 'sq-answer' });
+
+      function drawChart(pop) {
+        const shown = shownSet();
+        const done = ctx.finished();
+        const svg = el('svg', { viewBox: '0 0 300 300', role: 'img', 'aria-label': L.guess + ' ' + season(q) });
+        const C = 150, R = 142, r = 82;
+        let a = -Math.PI / 2;
+        slices.forEach((s, i) => {
+          const a1 = a + (s.n / total) * Math.PI * 2;
+          const mid = (a + a1) / 2;
+          const on = shown.has(i);
+          const off = sel === i ? 6 : 0;
+          const g = el('g', { class: 'sq-slice' + (on ? ' on' : '') + (sel === i ? ' sel' : '') + (pop && pop.has(i) ? ' pop' : ''), transform: 'translate(' + (Math.cos(mid) * off).toFixed(2) + ' ' + (Math.sin(mid) * off).toFixed(2) + ')', tabindex: '0', role: 'button',
+            'aria-label': (on ? MF.country(s.nat) : L.hidden) + ': ' + L.players(s.n) });
+          const path = el('path', { d: arc(C, C, R, r, a, a1) });
+          if (on) path.style.fill = flagColor(s.nat, () => drawChart());
+          g.appendChild(path);
+          if (on) {
+            const code = MF.data.flags.map[s.nat], src = code && MF.data.flags.img[code];
+            const arcLen = (a1 - a) * ((R + r) / 2);
+            const w = Math.max(13, Math.min(34, arcLen * 0.62, (R - r) * 0.5));
+            const hgt = w * 0.68;
+            const [fx, fy] = pt(C, C, (R + r) / 2, mid);
+            if (src) {
+              g.appendChild(el('rect', { x: fx - w / 2 - 1.5, y: fy - hgt / 2 - 1.5, width: w + 3, height: hgt + 3, rx: 2.5, class: 'sq-fl-bg' }));
+              const im = el('image', { x: fx - w / 2, y: fy - hgt / 2, width: w, height: hgt, preserveAspectRatio: 'none' });
+              im.setAttribute('href', src);
+              g.appendChild(im);
+            } else {
+              const tt = el('text', { x: fx, y: fy + 4, 'text-anchor': 'middle', class: 'sq-fl-txt' }); tt.textContent = s.nat.slice(0, 3).toUpperCase(); g.appendChild(tt);
+            }
+          }
+          const pick = () => { sel = sel === i ? null : i; drawChart(); paintInfo(); };
+          g.addEventListener('click', pick);
+          g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+          svg.appendChild(g);
+          a = a1;
+        });
+        const t1 = el('text', { x: C, y: C - 10, 'text-anchor': 'middle', class: 'sq-c1' }); t1.textContent = L.guess;
+        const t2 = el('text', { x: C, y: C + 22, 'text-anchor': 'middle', class: 'sq-c2' }); t2.textContent = season(q);
+        svg.appendChild(t1); svg.appendChild(t2);
+        if (done) {
+          const t3 = el('text', { x: C, y: C + 44, 'text-anchor': 'middle', class: 'sq-c3' }); t3.textContent = L.players(total); svg.appendChild(t3);
         }
-        paint();
+        MF.clear(chartWrap).appendChild(svg);
+        const shownN = [...shown].reduce((x, i) => x + slices[i].n, 0);
+        pctPill.textContent = L.shown + ': ' + Math.round((shownN / total) * 100) + '%';
+        triesPill.textContent = L.attempt + ' ' + (done ? st.g.length || 1 : Math.min(st.g.length + 1, TRIES)) + '/' + TRIES;
       }
-      function skip() {
+      function paintInfo() {
+        MF.clear(info);
+        const done = ctx.finished();
+        if (sel == null) { info.appendChild(h('p', { class: 'sq-tip' }, done ? L.tapSlice : L.tapCount)); return; }
+        const s = slices[sel];
+        const on = shownSet().has(sel);
+        info.appendChild(h('div', { class: 'sq-info-head' }, on ? MF.flag(s.nat) : h('span', { class: 'sq-q' }, '?'), h('strong', null, on ? MF.country(s.nat) : L.hidden), h('span', { class: 'sq-n' }, L.players(s.n))));
+        if (done) info.appendChild(h('p', { class: 'sq-names' }, s.pl.join(' · ')));
+      }
+      function paintGuesses() {
+        MF.clear(guesses);
+        st.g.forEach((ci) => {
+          const ok = ci >= 0 && isAnswer(ci);
+          guesses.appendChild(h('li', { class: ok ? 'ok' : 'bad' }, h('span', { class: 'sq-mark', 'aria-hidden': 'true' }, ok ? '✓' : '✗'), ci >= 0 ? clubs[ci].n : L.skipped));
+        });
+        for (let k = st.g.length; k < TRIES && !ctx.finished(); k++) guesses.appendChild(h('li', { class: 'empty' }, h('span', { class: 'sq-mark' }, k + 1)));
+      }
+      function paintAnswer() {
+        MF.clear(answerBox);
+        if (!ctx.finished()) return;
+        answerBox.appendChild(h('div', { class: 'sq-club pop' }, MF.crest(club.n, 54), h('div', null, h('span', null, L.answer), h('strong', null, club.n), h('em', null, season(q)))));
+        answerBox.appendChild(h('ul', { class: 'sq-list' }, slices.map((s) => h('li', null, MF.flag(s.nat), h('b', null, s.n), h('span', null, MF.country(s.nat) + ' — ' + s.pl.join(', '))))));
+      }
+      function paint(pop) { drawChart(pop); paintInfo(); paintGuesses(); paintAnswer(); }
+
+      function attempt(ci) {
         if (ctx.finished()) return;
-        if (five) { if (skipsLeft() <= 0) return; st.skips++; }
-        advance();
-      }
-      function place(i) {
-        const p = cur();
-        if (ctx.finished() || !p || st.cells[i] != null) return;
-        if (cats[i].fit(p)) {
-          st.cells[i] = p.i;
-          if (filled() === 12) { ctx.save(); return end(true); }
-          st.k = (st.k + 1) % deck.length; st.tried = [];
-          ctx.save();
-          const q = cur();
-          if (five && skipsLeft() <= 0 && q && !fitsOpen(q)) { MF.toast(t('bingoStuck').replace('{p}', q.n), 'bad'); return end(false); }
-          return paint(i);
-        }
-        // erro livre: o jogador continua, a casa fica marcada para esta carta
-        st.miss++;
-        if (!st.tried.includes(i)) st.tried.push(i);
+        if (ci >= 0 && st.g.includes(ci)) return MF.toast(L.wrongClub + ' ' + clubs[ci].n, 'bad');
+        const before = shownSet();
+        st.g.push(ci);
         ctx.save();
-        MF.toast(t('bingoWrong').replace('{p}', p.n).replace('{c}', label(cats[i])), 'bad');
-        paint(null, i);
+        if (ci >= 0 && isAnswer(ci)) return end(true);
+        if (st.g.length >= TRIES) return end(false);
+        if (ci >= 0) { MF.toast(L.wrongClub + ' ' + clubs[ci].n, 'bad'); MF.anim(chartWrap, 'shake'); }
+        const now = shownSet();
+        paint(new Set([...now].filter((i) => !before.has(i))));
       }
       function end(win) {
         if (ctx.finished()) return;
-        const n = filled();
-        const rows = [0, 1, 2].map((r) => [0, 1, 2, 3].map((c) => (st.cells[r * 4 + c] != null ? '🟩' : '⬛')).join('')).join('\n');
-        st.scoreLabel = n + '/12 · ' + st.miss + ' ' + t('missesWord');
-        ctx.finish(win, n, rows + '\n' + n + '/12 · ' + st.miss + ' ' + t('missesWord') + (five ? ' · ' + st.skips + '/' + SKIPS + ' ' + t('skipsWord') : ''));
-        paint();
+        const n = st.g.length;
+        const marks = st.g.map((ci) => (ci >= 0 && isAnswer(ci) ? '🟩' : '🟥')).join('');
+        st.scoreLabel = win ? L.gotIt(n) : L.answer + ': ' + club.n;
+        ctx.finish(win, win ? TRIES + 1 - n : 0, marks + (win ? '' : '⬛'.repeat(Math.max(0, TRIES - n))) + ' · ' + season(q));
+        ac.hidden = true;
         helpBtn.refresh();
-      }
-      // ajuda única: destaca as casas livres em que o jogador da vez encaixa (ou avisa que ele não serve em nenhuma)
-      const helpBtn = MF.helpButton(ctx, () => {
-        const p = cur();
-        if (!p) return false;
-        st.helpPi = p.i;
         paint();
-        return fitsOpen(p) ? MF.ht('fitHere', { p: p.n }) : MF.ht('noFit', { p: p.n });
+      }
+      ctx.onTimeUp = () => end(false);
+      // ajuda única: o país do clube
+      const helpBtn = MF.helpButton(ctx, () => (club.cty ? L.help(MF.country(club.cty)) : false));
+      const list = (() => {
+        if (MF._allClubs) return MF._allClubs;
+        const { byClub } = MF.data;
+        return (MF._allClubs = clubs.filter((c) => byClub[c.i].length).map((c) => ({ i: c.i, n: c.n, k: MF.norm(c.n), sz: byClub[c.i].length })));
+      })();
+      const ac = MF.autocomplete({
+        placeholder: t('typeClub'),
+        // busca em todos os clubes, só pelo nome: nunca mostra escudo
+        source: (s) => {
+          const nq = MF.norm(s); if (nq.length < 2) return [];
+          return list.filter((c) => c.k.startsWith(nq) || c.k.split(/[\s-]/).some((w) => w.startsWith(nq)))
+            .sort((a, b) => (b.k.startsWith(nq) - a.k.startsWith(nq)) || b.sz - a.sz).slice(0, 8).map((c) => ({ id: c.i, label: c.n }));
+        },
+        onPick: (it) => attempt(it.id),
+        extra: [h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => attempt(-1) }, t('skip')), helpBtn,
+          h('button', { class: 'btn btn-ghost flag-btn', type: 'button', 'aria-label': t('giveUp'), title: t('giveUp'), onclick: () => end(false) }, MF.icon('flag'))],
       });
-      board.appendChild(h('div', { class: 'bar' }, cellPill, missPill, h('span', { class: 'pill' }, five ? SKIPS + ' ' + t('skipsWord') : t('bingoFree'))));
-      board.appendChild(cardBox);
-      board.appendChild(grid);
-      board.appendChild(h('div', { class: 'row-btns center' }, helpBtn, flag));
-      board.appendChild(helpBtn.note);
+      board.appendChild(h('div', { class: 'bar' }, triesPill, pctPill, ctx.timerEl));
+      board.appendChild(h('div', { class: 'sq-layout' }, h('div', { class: 'sq-left' }, chartWrap, info), h('div', { class: 'sq-side' }, guesses, ac, helpBtn.note, answerBox)));
+      if (ctx.finished()) ac.hidden = true;
       paint();
+      MF._sqLast = q; // usado nos testes
     },
   });
-  MF._bingoBuild = build; MF._bingoAwards = AWARD_ORDER; // usado nos testes
 })();

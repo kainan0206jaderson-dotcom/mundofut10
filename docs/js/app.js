@@ -301,13 +301,13 @@ scoreboard()),
     const wide = () => innerWidth >= 900;
     const setCols = () => stage.classList.toggle('cols', innerWidth >= 1200);
     setCols(); addEventListener('resize', setCols);
-    // telas largas: o telão 3D do estádio é o relógio (o placar da interface vira só texto para leitores de tela);
-    // nas demais, o telão some depois da abertura e o placar da interface assume
+    // o telão 3D pendurado no estádio é o relógio em TODAS as telas (celular e computador, desde 18/10/2026):
+    // fica sempre no lugar dele, fazendo parte do estádio, e a câmera o enquadra junto com o campo.
+    // O placar da interface vira só texto para leitores de tela.
     const boardMode = () => {
-      const on = stage.classList.contains('cols');
-      S.boardFit = on;
-      stage.classList.toggle('board3d', on);
-      S.setBoard(on || !!S.intro);
+      S.boardFit = true;
+      stage.classList.add('board3d');
+      S.setBoard(true);
     };
     const fitRect = () => {
       boardMode();
@@ -333,7 +333,7 @@ scoreboard()),
       skip.hidden = false;
       setTimeout(() => skip.focus({ preventScroll: true }), 60);
       S.playIntro(() => {
-        S.setBoard(stage.classList.contains('cols'));
+        S.setBoard(true);
         document.body.classList.remove('intro-on');
         main.classList.remove('intro-on');
         main.classList.add('ui-in');

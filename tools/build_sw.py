@@ -5,11 +5,11 @@ ROOT = os.path.join(os.path.dirname(__file__), '..', 'docs')
 files = ['./', 'index.html']
 for d in ('crests', 'icons', 'img/tex', 'js', 'js/games'):
     files += sorted(f'{d}/{f}' for f in os.listdir(os.path.join(ROOT, d)) if os.path.isfile(os.path.join(ROOT, d, f)))
-# ext.json (8 MB, base completa) entra no cache só quando é usado
+# ext.json (8 MB, base completa) e squads.json (Desafio do elenco) entram no cache só quando são usados
 files += [f'data/{f}' for f in ('crests.json', 'db.json', 'flags.json', 'games.json', 'trophies.json')]
 files += ['favicon.png', 'manifest.webmanifest', 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js']
 h = hashlib.sha1()
-for f in files + ['data/ext.json']:
+for f in files + ['data/ext.json', 'data/squads.json']:
     p = os.path.join(ROOT, f)
     if os.path.isfile(p):
         h.update(open(p, 'rb').read())

@@ -491,45 +491,58 @@ input, textarea { caret-color: var(--yellow); }
 .pyr-answer { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 3px; font-size: 14px; }
 .pyr-answer b { color: var(--yellow); font-family: var(--f-num); }
 
-/* jogo 7: Bingo FUT10 */
-.bg-card { display: flex; align-items: center; justify-content: center; gap: 18px; min-height: 150px; position: relative; }
-.bg-player { display: grid; justify-items: center; gap: 8px; text-align: center; }
-.bg-player .pph { box-shadow: inset 0 0 0 2px var(--yellow), 0 10px 26px rgba(0,0,0,.45); }
-.bg-player strong { font-family: var(--f-display); font-weight: 900; font-size: clamp(22px, 4vw, 30px); line-height: 1; text-transform: uppercase; letter-spacing: .03em; border-bottom: 3px solid var(--yellow); padding-bottom: 6px; }
-.bg-skip { position: absolute; right: 0; top: 50%; transform: translateY(-50%); background: var(--yellow); color: var(--on-yellow); border-color: var(--yellow); font-family: var(--f-display); font-weight: 800; font-size: 18px; letter-spacing: .04em; text-transform: uppercase; }
-.bg-end { font-family: var(--f-display); font-weight: 900; font-size: 54px; color: var(--yellow); }
-.bg-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 560px; width: 100%; margin: 0 auto; }
-.bg-cell { aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 5px; padding: 6px 4px; border-radius: var(--r-md); background: var(--surface); border: 1.5px solid var(--line); color: var(--paper); text-align: center; cursor: pointer; font: inherit; min-width: 0; }
-.bg-cell:disabled { cursor: default; }
-.bg-cell .flag-lg { width: 46px; height: 31px; }
-.bg-cat { font-size: 11px; font-weight: 700; line-height: 1.1; text-transform: uppercase; letter-spacing: .02em; color: var(--mute); overflow-wrap: anywhere; }
-.bg-lg { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--ink); border: 2px solid var(--yellow); color: var(--yellow); font-family: var(--f-display); font-weight: 900; font-size: 17px; }
-.bg-aw { width: 44px; height: 44px; color: var(--yellow); }
-.bg-aw svg { width: 100%; height: 100%; display: block; }
-.bg-cell.on { background: var(--yellow); border-color: var(--yellow); color: var(--on-yellow); }
-.bg-cell.on .bg-cat { color: rgba(13,12,9,.7); }
-.bg-name { font-weight: 800; font-size: 12px; line-height: 1.05; overflow-wrap: anywhere; }
-.bg-cell.bad { border-color: var(--bad); background: rgba(255,93,77,.18); }
-.bg-cell.miss { opacity: .75; border-style: dashed; }
-.bg-ex { font-size: 11px; color: var(--yellow); font-weight: 600; }
-.bg-cell.pop { animation: popIn .45s var(--spring); }
-.pv-bingo { grid-template-columns: repeat(4, 32px); }
-.pv-bingo b { height: 32px; }
-@media (hover: hover) and (pointer: fine) { .bg-cell:not(:disabled):hover { border-color: var(--yellow); background: var(--surface-2); } }
-@media (max-width: 640px) {
-  .bg-card { flex-direction: column; min-height: 0; gap: 10px; }
-  .bg-skip { position: static; transform: none; }
-  .bg-grid { gap: 6px; }
-  .bg-cell { padding: 4px 2px; gap: 3px; }
-  .bg-cell .crest { width: 34px !important; height: 39px !important; }
-  .bg-cell .crest svg { width: 34px; height: 39px; }
-  .bg-cell .flag-lg { width: 36px; height: 24px; }
-  .bg-lg, .bg-aw { width: 34px; height: 34px; font-size: 13px; }
-  .bg-cat { font-size: 9px; }
-  .bg-name { font-size: 10px; }
-  .bg-cell .pph { --ph: 28px !important; }
+/* jogo 7: Desafio do elenco (rosca de nacionalidades) */
+.sq-layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 32px); align-items: start; }
+.sq-left { display: grid; gap: 12px; justify-items: center; }
+.sq-chart { width: 100%; max-width: 420px; aspect-ratio: 1; }
+.sq-chart svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.sq-slice { cursor: pointer; transition: transform .25s var(--ease); outline: none; }
+.sq-slice path { fill: var(--surface-2); stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; transition: fill .35s var(--ease), filter .2s; }
+.sq-slice:not(.on) path { fill: #1f2119; }
+.sq-slice.sel path, .sq-slice:focus-visible path { stroke: var(--yellow); stroke-width: 2.5; }
+.sq-slice.pop { animation: sqPop .5s var(--spring); transform-box: fill-box; transform-origin: center; }
+@keyframes sqPop { from { opacity: 0; } to { opacity: 1; } }
+.sq-fl-bg { fill: rgba(13,12,9,.55); }
+.sq-fl-txt { fill: var(--paper); font: 700 11px var(--f-num); }
+.sq-c1 { fill: var(--mute); font: 700 13px var(--f-num); letter-spacing: .12em; }
+.sq-c2 { fill: var(--yellow); font: 900 34px var(--f-display); letter-spacing: .02em; }
+.sq-c3 { fill: var(--mute); font: 600 12px var(--f-num); }
+.sq-info { width: 100%; max-width: 420px; min-height: 52px; padding: 10px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+.sq-tip { margin: 0; color: var(--mute); font-size: 14px; text-align: center; }
+.sq-info-head { display: flex; align-items: center; gap: 10px; }
+.sq-info-head strong { font-family: var(--f-display); font-size: 20px; font-weight: 800; text-transform: uppercase; }
+.sq-n { margin-left: auto; font-family: var(--f-num); font-weight: 700; color: var(--yellow); white-space: nowrap; }
+.sq-q { display: grid; place-items: center; width: 28px; height: 19px; border-radius: 3px; background: #24271f; color: var(--mute); font-weight: 800; }
+.sq-names { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--paper); }
+.sq-side { display: grid; gap: 14px; align-content: start; }
+.sq-guesses { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sq-guesses li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); font-weight: 700; }
+.sq-guesses li.bad { border-color: rgba(255,93,77,.55); background: rgba(255,93,77,.12); }
+.sq-guesses li.ok { border-color: var(--ok); background: rgba(61,220,138,.14); }
+.sq-guesses li.empty { border-style: dashed; color: var(--mute); }
+.sq-mark { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ink); font-family: var(--f-num); font-size: 14px; flex: none; }
+.sq-guesses li.bad .sq-mark { color: var(--bad); }
+.sq-guesses li.ok .sq-mark { color: var(--ok); }
+.sq-answer:empty { display: none; }
+.sq-answer { display: grid; gap: 12px; }
+.sq-club { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: var(--r-md); background: var(--yellow); color: var(--on-yellow); }
+.sq-club div { display: grid; line-height: 1.1; }
+.sq-club span { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }
+.sq-club strong { font-family: var(--f-display); font-size: 26px; font-weight: 900; text-transform: uppercase; }
+.sq-club em { font-style: normal; font-family: var(--f-num); font-weight: 700; }
+.sq-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 340px; overflow: auto; font-size: 13px; }
+.sq-list li { display: grid; grid-template-columns: 28px 22px 1fr; gap: 8px; align-items: start; padding: 6px 8px; border-radius: var(--r-sm); background: var(--surface); }
+.sq-list b { font-family: var(--f-num); color: var(--yellow); text-align: right; }
+.sq-list .flag { margin-top: 2px; }
+.sq-club.pop { animation: popIn .45s var(--spring); }
+.pv-donut { width: 132px; height: 132px; }
+.pv-donut path { fill: #2a2c22; stroke: var(--ink); stroke-width: 1.5; }
+.pv-donut .on0 { fill: #3d7be0; } .pv-donut .on2 { fill: #ef8a2e; } .pv-donut .on5 { fill: #3ddc8a; }
+@media (max-width: 760px) {
+  .sq-layout { grid-template-columns: 1fr; }
+  .sq-chart { max-width: 340px; }
 }
-@media (prefers-reduced-motion: reduce) { .bg-cell.pop { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .sq-slice, .sq-slice path { transition: none; } .sq-slice.pop, .sq-club.pop { animation: none; } }
 .link-row { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .link-card { display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 140px; padding: 10px 6px; border-radius: var(--r-md); background: var(--ink); border: 1px dashed var(--line); text-align: center; }
 .link-card.on { background: var(--surface); border: 1px solid var(--line); }
