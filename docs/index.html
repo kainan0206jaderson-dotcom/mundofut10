@@ -611,8 +611,12 @@ input, textarea { caret-color: var(--yellow); }
 /* jogo 9 */
 .dist-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .dist { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "n s" "w s"; gap: 0 12px; padding: 10px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
-.dist-bar { position: absolute; inset: 0 auto 0 0; opacity: .28; transition: width .6s var(--ease); }
-.dist.h0 .dist-bar { background: var(--cold); } .dist.h1 .dist-bar { background: #9c9a7a; } .dist.h2 .dist-bar { background: var(--yellow-2); } .dist.h3 .dist-bar { background: var(--yellow); } .dist.h4 .dist-bar { background: var(--ok); opacity: .45; }
+.dist { grid-template-areas: "n s" "w s" "m m"; }
+.dist-meter { grid-area: m; position: relative; display: block; height: 10px; margin-top: 8px; border-radius: 99px; background: color-mix(in srgb, var(--mute) 18%, transparent); overflow: hidden; }
+.dist-fill { display: block; height: 100%; border-radius: inherit; transition: width .6s var(--ease); background: var(--cold); }
+.dist.h1 .dist-fill { background: #9c9a7a; } .dist.h2 .dist-fill { background: var(--yellow-2); } .dist.h3 .dist-fill { background: var(--yellow); } .dist.h4 .dist-fill { background: var(--ok); }
+.dist-pos { font-size: 11px; font-weight: 800; letter-spacing: .04em; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--mute); }
+@media (prefers-reduced-motion: reduce) { .dist-fill { transition: none; } }
 .dist-name { grid-area: n; position: relative; display: flex; align-items: center; gap: 8px; font-weight: 700; }
 .dist-why { grid-area: w; position: relative; font-size: 12px; color: var(--mute); }
 .dist-s { grid-area: s; position: relative; align-self: center; font-family: var(--f-display); font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; }

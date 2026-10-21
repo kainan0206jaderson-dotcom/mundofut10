@@ -77,6 +77,21 @@
   // - números (jogos, assistências, gols em competições, mercado): só times e competições conhecidos.
   // Listas curadas em games.json "tops" (tools/tops.json, com a fonte e a data de cada uma).
   const U2 = { assist: { pt: 'assistências', en: 'assists', es: 'asistencias' } };
+  // Revisão de 21/10/2026: no Fácil, Normal e Difícil as perguntas de clube e de liga (Premier, LaLiga, Brasileirão…) não podem
+  // ter muitos jogadores antigos (que pararam antes de 2005 ou nem estão na base, de antes de 1990): com 3 ou mais, a lista vai
+  // para o Lendário. Seleções: com 5 ou mais antigos, Lendário. Copa do Mundo e Champions podem ter antigos (todo mundo conhece).
+  // A artilharia de cada Copa e a votação da Bola de Ouro descem um degrau quando são recentes.
+  const oldOne = (it) => it.pi < 0 || MF.data.P[it.pi].lastY < 2005;
+  function revLv(c, items) {
+    if (!MF.isRev()) return c.lv;
+    const old = items.filter(oldOne).length;
+    const league = /^(cl-|a-|x-(pl|ll|sa|bl|lib))/.test(c.k), nat = /^(g-|c-)/.test(c.k);
+    if (league && old >= 3) return 3;
+    if (nat && old >= 5) return 3;
+    return c.lv;
+  }
+  const wcLv = (y) => (!MF.isRev() ? (+y >= 2002 ? 2 : 3) : +y >= 2018 ? 0 : +y >= 2006 ? 1 : +y >= 1994 ? 2 : 3);
+  const boLv = (y) => (!MF.isRev() ? (+y >= 2008 ? 2 : 3) : +y >= 2018 ? 1 : +y >= 2008 ? 2 : 3);
   function topCats() {
     if (MF._pyr3) return MF._pyr3;
     const { games, P } = MF.data;
@@ -91,13 +106,13 @@
         if (p && ci != null && !p.clubs.includes(ci)) p = null; // homônimo que nunca jogou no clube (ex.: Dida do Flamengo x goleiro Dida)
         return { n, v, nat: na, pi: p ? p.i : -1, ph: c.club ? na + ' ' + c.club : na };
       });
-      cats.push({ key: 't-' + c.k, lv: c.lv, fixed: true, src: c.src, title: { pt: c.t[0], en: c.t[1], es: c.t[2] }, unit: U[c.u] || U2[c.u] || U.gols, items: items.slice(0, 10) });
+      cats.push({ key: 't-' + c.k, lv: revLv(c, items.slice(0, 10)), fixed: true, src: c.src, title: { pt: c.t[0], en: c.t[1], es: c.t[2] }, unit: U[c.u] || U2[c.u] || U.gols, items: items.slice(0, 10) });
     }
     // (mercado e transferências ficaram de fora: a base não tem todas as marcas, então não seria um Top 10 de verdade)
     // artilharia de cada Copa do Mundo (a Copa é título importante): Top 10 da edição
     for (const [y, rows] of Object.entries(games.wcg || {})) {
       const items = rows.slice().sort((a, b) => b[3] - a[3]).slice(0, 10).map(([pi, n, nat, g]) => ({ n: pi >= 0 ? P[pi].n : n, pi, nat, v: g }));
-      if (items.length === 10) cats.push({ key: 't-wcg' + y, lv: +y >= 2002 ? 2 : 3, fixed: true, src: 'FIFA', unit: U.gols, items,
+      if (items.length === 10) cats.push({ key: 't-wcg' + y, lv: wcLv(y), fixed: true, src: 'FIFA', unit: U.gols, items,
         title: { pt: 'Top 10: artilheiros da Copa do Mundo de ' + y, en: 'Top 10: top scorers at the ' + y + ' World Cup', es: 'Top 10: goleadores del Mundial ' + y } });
     }
     // votação da Bola de Ouro (o top 10 do ano)
@@ -105,7 +120,7 @@
       if (rows.some((r) => r[4] == null)) continue;
       const pct = +y >= 2010 && +y <= 2015;
       const items = rows.slice(0, 10).map((r) => { const p = linkP(r[1], r[2]); return { n: r[1], pi: p ? p.i : -1, nat: r[2], v: r[4] }; });
-      cats.push({ key: 't-bo' + y, lv: +y >= 2008 ? 2 : 3, fixed: true, src: 'France Football', unit: pct ? U.pct : U.pts, items,
+      cats.push({ key: 't-bo' + y, lv: boLv(y), fixed: true, src: 'France Football', unit: pct ? U.pct : U.pts, items,
         title: { pt: 'Top 10: votação da Bola de Ouro ' + y, en: 'Top 10: Ballon d’Or ' + y + ' voting', es: 'Top 10: votación del Balón de Oro ' + y } });
     }
     return (MF._pyr3 = cats.filter((c) => c.items.length === 10));
@@ -163,9 +178,9 @@
   MF.registerGame({
     num: 6, slug: 'piramide-do-atleta',
     rules: {
-      pt: ['Cada pergunta é um Top 10 de verdade: maiores artilheiros de seleções e clubes campeões, mais jogos pela seleção (só campeãs da Copa), recordes da Champions, das Copas e das grandes ligas, Bola de Ouro… A fonte aparece embaixo da pergunta. Empate: quem tem o mesmo número vale em qualquer casa do grupo empatado (ex.: três com 3 gols nas casas 8, 9 e 10, em qualquer ordem); sem empate, só a posição exata conta.', 'Os 10 jogadores chegam um por vez. Toque numa casa vazia para colocá-lo: o 1º no topo, depois 2, 3 e 4 por fileira, da esquerda para a direita. Para trocar, toque num jogador já colocado e depois na casa de destino.', 'Ajuda: uma vez por partida, em qualquer dificuldade, pinta de verde quem está no lugar certo e de vermelho quem está errado.', 'Fácil: os Top 10 mais famosos (Seleção Brasileira, Real, Barça, Flamengo, Champions, Copas) e a fileira de cada um aparece; vence com 6 acertos. Normal: grandes clubes, seleções campeãs e grandes ligas; vence com 7. Difícil: recordes de jogos, Libertadores, Bola de Ouro e artilharia de cada Copa; vence com 8. Lendário: qualquer Top 10, inclusive Copas e Bolas de Ouro antigas, sem trocas; vence com 8.'],
-      en: ['Every question is a real Top 10: all-time top scorers of title-winning nations and clubs, most caps (World Cup winners only), Champions League, World Cup and big-league records, Ballon d’Or… The source is shown under the question. Ties: players with the same number count in any spot of the tied group (e.g. three with 3 goals in spots 8, 9 and 10, any order); without a tie, only the exact spot counts.', 'The 10 players arrive one at a time. Tap an empty spot to place them: 1st at the top, then rows of 2, 3 and 4, left to right. To swap, tap a placed player and then the target spot.', 'Help: once per game, in any difficulty, turns players in the right spot green and the wrong ones red.', 'Easy: the most famous Top 10s (Brazil, Real, Barça, Flamengo, Champions League, World Cups) and each player’s row is shown; win with 6. Normal: big clubs, World Cup–winning nations and big leagues; win with 7. Hard: appearance records, Libertadores, Ballon d’Or and each World Cup’s scorers; win with 8. Legendary: any Top 10, including old World Cups and Ballon d’Or, no swaps; win with 8.'],
-      es: ['Cada pregunta es un Top 10 de verdad: máximos goleadores de selecciones y clubes campeones, más partidos con la selección (solo campeonas del Mundial), récords de la Champions, de los Mundiales y de las grandes ligas, Balón de Oro… La fuente aparece bajo la pregunta. Empate: quienes tienen el mismo número valen en cualquier casilla del grupo empatado (ej.: tres con 3 goles en las casillas 8, 9 y 10, en cualquier orden); sin empate, solo cuenta la posición exacta.', 'Los 10 jugadores llegan de uno en uno. Toca una casilla vacía para colocarlo: el 1.º arriba, luego filas de 2, 3 y 4, de izquierda a derecha. Para cambiar, toca un jugador colocado y luego la casilla de destino.', 'Ayuda: una vez por partida, en cualquier dificultad, pinta de verde a los bien colocados y de rojo a los mal colocados.', 'Fácil: los Top 10 más famosos (Brasil, Real, Barça, Flamengo, Champions, Mundiales) y se muestra la fila de cada uno; ganas con 6. Normal: grandes clubes, selecciones campeonas y grandes ligas; ganas con 7. Difícil: récords de partidos, Libertadores, Balón de Oro y goleadores de cada Mundial; ganas con 8. Legendario: cualquier Top 10, incluso Mundiales y Balones de Oro antiguos, sin cambios; ganas con 8.'],
+      pt: ['Cada pergunta é um Top 10 de verdade: maiores artilheiros de seleções e clubes campeões, mais jogos pela seleção (só campeãs da Copa), recordes da Champions, das Copas e das grandes ligas, Bola de Ouro… A fonte aparece embaixo da pergunta. Empate: quem tem o mesmo número vale em qualquer casa do grupo empatado (ex.: três com 3 gols nas casas 8, 9 e 10, em qualquer ordem); sem empate, só a posição exata conta.', 'Os 10 jogadores chegam um por vez. Toque numa casa vazia para colocá-lo: o 1º no topo, depois 2, 3 e 4 por fileira, da esquerda para a direita. Para trocar, toque num jogador já colocado e depois na casa de destino.', 'Ajuda: uma vez por partida, em qualquer dificuldade, pinta de verde quem está no lugar certo e de vermelho quem está errado.', 'Fácil: Top 10 famosos e com jogadores recentes (Champions, Copas recentes, seleções campeãs) e a fileira de cada um aparece; vence com 6 acertos. Normal: Champions, Copas, seleções e ligas com jogadores conhecidos de hoje; vence com 7. Difícil: recordes de jogos, Bola de Ouro e artilharia de cada Copa, ainda com jogadores das últimas décadas; vence com 8. Nos três, listas de clube e de liga cheias de jogadores antigos ficam só para o Lendário (Copa do Mundo e Champions podem ter antigos). Lendário: qualquer Top 10, inclusive os históricos de clubes, Copas e Bolas de Ouro antigas, sem trocas; vence com 8.'],
+      en: ['Every question is a real Top 10: all-time top scorers of title-winning nations and clubs, most caps (World Cup winners only), Champions League, World Cup and big-league records, Ballon d’Or… The source is shown under the question. Ties: players with the same number count in any spot of the tied group (e.g. three with 3 goals in spots 8, 9 and 10, any order); without a tie, only the exact spot counts.', 'The 10 players arrive one at a time. Tap an empty spot to place them: 1st at the top, then rows of 2, 3 and 4, left to right. To swap, tap a placed player and then the target spot.', 'Help: once per game, in any difficulty, turns players in the right spot green and the wrong ones red.', 'Easy: famous Top 10s with recent players (Champions League, recent World Cups, World Cup–winning nations) and each player’s row is shown; win with 6. Normal: Champions League, World Cups, nations and leagues with today’s well-known players; win with 7. Hard: appearance records, Ballon d’Or and each World Cup’s scorers, still with players from recent decades; win with 8. In these three, club and league lists full of old players are Legendary only (World Cup and Champions League lists may have old players). Legendary: any Top 10, including all-time club lists, old World Cups and Ballon d’Or, no swaps; win with 8.'],
+      es: ['Cada pregunta es un Top 10 de verdad: máximos goleadores de selecciones y clubes campeones, más partidos con la selección (solo campeonas del Mundial), récords de la Champions, de los Mundiales y de las grandes ligas, Balón de Oro… La fuente aparece bajo la pregunta. Empate: quienes tienen el mismo número valen en cualquier casilla del grupo empatado (ej.: tres con 3 goles en las casillas 8, 9 y 10, en cualquier orden); sin empate, solo cuenta la posición exacta.', 'Los 10 jugadores llegan de uno en uno. Toca una casilla vacía para colocarlo: el 1.º arriba, luego filas de 2, 3 y 4, de izquierda a derecha. Para cambiar, toca un jugador colocado y luego la casilla de destino.', 'Ayuda: una vez por partida, en cualquier dificultad, pinta de verde a los bien colocados y de rojo a los mal colocados.', 'Fácil: Top 10 famosos y con jugadores recientes (Champions, Mundiales recientes, selecciones campeonas) y se muestra la fila de cada uno; ganas con 6. Normal: Champions, Mundiales, selecciones y ligas con jugadores conocidos de hoy; ganas con 7. Difícil: récords de partidos, Balón de Oro y goleadores de cada Mundial, aún con jugadores de las últimas décadas; ganas con 8. En los tres, las listas de clubes y ligas llenas de jugadores antiguos quedan para el Legendario (Mundial y Champions pueden tener antiguos). Legendario: cualquier Top 10, incluso los históricos de clubes, Mundiales y Balones de Oro antiguos, sin cambios; ganas con 8.'],
     },
     options: [MF.levelOpt(), MF.timerOpt([0, 120, 60])],
     preview() { return h('div', { class: 'pv-pyr' }, ROWS.map((r) => h('span', null, r.map(() => h('b'))))); },

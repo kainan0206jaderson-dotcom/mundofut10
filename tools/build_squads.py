@@ -73,6 +73,12 @@ def main():
             if best and best[0] in member:
                 sq[(member[best[0]][0], S)].append((r, name, nat))
     for (c0, S), pl in sq.items():
+        # ficha repetida do mesmo jogador (mesmo nome) conta uma vez só (21/10/2026)
+        uniq = {}
+        for r, nm, nat in pl:
+            if nm not in uniq or uniq[nm][0] < r:
+                uniq[nm] = (r, nat)
+        pl = [(r, nm, nat) for nm, (r, nat) in uniq.items()]
         if not 20 <= len(pl) <= 36:
             continue
         g = collections.defaultdict(list)

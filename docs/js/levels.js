@@ -15,6 +15,15 @@
               (sem os craques mais óbvios), mas sem ficar impossível;
    - Lendário: a base de cada jogo.
 
+   REVISÃO DE 21/10/2026 (Normal e Difícil mais acessíveis, como no Futbol11, cujo Difícil do Grid só usa gigantes):
+   - clubes em faixas fixas e conhecidas (MF.tierSet): Fácil = famosos; Normal = famosos + grandes conhecidos da Europa e do
+     Brasil (Marseille, PSV, Sevilla, Lazio, Leverkusen, Grêmio, Cruzeiro…); Difícil = Normal + clubes tradicionais da
+     1ª divisão (Fiorentina, Everton, Real Betis, Leipzig, Braga…). Sem time de Série B/C ou desconhecido fora do Lendário.
+     Vale no Grid, no Impostor e no Desafio do elenco. O Draft continua com MF.clubSet (pedido: o Draft está bom como está).
+   - jogadores: Normal = conhecidos (nota 84+, ou famoso/lenda/Bola de Ouro 83+) que jogam hoje num clube dessas faixas
+     (ou craques 87+ em qualquer clube); Difícil = jogadores 80+ dos clubes das faixas, 84+ das principais ligas e lendas
+     que pararam de 2010 para cá. Quem está sem clube ou faleceu não conta como "joga hoje".
+
    As listas de clubes e de elencos 2026/27 ficam em data/games.json ("levels", gerado por tools/build_levels.py).
    Os desafios do dia só mudam de critério a partir do desafio nº 5 (16/10/2026), para não trocar a resposta no meio do dia.
    Para ver antes, abra o site com ?novo no endereço. */
@@ -51,6 +60,33 @@
   }
   MF.levelSets = sets;
 
+  // ------------------------------------------------------------------ faixas de clubes (21/10/2026)
+  const TIER_N = ['Olympique de Marseille', 'PSV', 'Feyenoord', 'Celtic', 'Aston Villa', 'Sevilla', 'Valencia', 'Lazio', 'Bayer Leverkusen',
+    'Sporting', 'Lyon', 'Monaco', 'Newcastle', 'Galatasaray', 'Fenerbahçe', 'Villarreal', 'Atalanta', 'Grêmio', 'Cruzeiro', 'Internacional',
+    'Atlético Mineiro', 'Fluminense', 'Botafogo', 'Vasco da Gama'];
+  const TIER_H = ['Fiorentina', 'Schalke 04', 'Everton', 'West Ham', 'Leicester City', 'Real Sociedad', 'Athletic Bilbao', 'Real Betis',
+    'RB Leipzig', 'Eintracht Frankfurt', 'Lille', 'Olympiacos', 'Beşiktaş', 'Shakhtar Donetsk', 'Racing Club', 'Independiente', 'Werder Bremen',
+    'VfB Stuttgart', 'Wolfsburg', "Borussia M'gladbach", 'Torino', 'Udinese', 'Bologna', 'Parma', 'Nice', 'Rennes', 'Zenit', 'Rangers', 'Braga',
+    'Anderlecht', 'Brighton', 'Crystal Palace', 'Nottingham Forest', 'Leeds United', 'Hamburgo', 'Estudiantes de La Plata', 'Club Brugge',
+    'Dínamo de Kiev', 'Bahia', 'Wolverhampton', 'Hoffenheim', 'Sampdoria', 'Genoa', 'Lens'];
+  // clubes que não entram no Grid/Impostor/Elenco por nome, mas onde jogador conhecido de hoje conta como "joga num clube conhecido"
+  const TIER_PLAY = ['Napoli', 'Inter Miami', 'Al-Hilal', 'Al-Nassr', 'Al-Ittihad', 'Al-Ahli'];
+  let T = null;
+  function tiers() {
+    if (T) return T;
+    const clubs = (MF.data && MF.data.clubs) || [];
+    const id = new Map();
+    for (const c of clubs) if (!id.has(c.n)) id.set(c.n, c.i);
+    const add = (base, names) => { const s = new Set(base); names.forEach((n) => id.has(n) && s.add(id.get(n))); return s; };
+    const easy = sets().famous;
+    const normal = add(easy, TIER_N), hard = add(normal, TIER_H);
+    T = { easy, normal, hard, legend: null, play: add(hard, TIER_PLAY) };
+    return T;
+  }
+  /** faixa de clubes do nível (Grid, Impostor, Desafio do elenco); null = sem filtro (Lendário) */
+  MF.tierSet = (lvl) => tiers()[lvl] || null;
+  MF.tierOk = (lvl, ci) => { const s = MF.tierSet(lvl); return !s || s.has(ci); };
+
   // ------------------------------------------------------------------ clubes
   /** conjunto de clubes (índices) aceitos no nível; null = sem filtro (Lendário) */
   MF.clubSet = (lvl) => sets().club[lvl] || null;
@@ -59,7 +95,7 @@
   // ------------------------------------------------------------------ jogadores
   // clube atual: última passagem que chega a 2025 ou depois (aposentado não tem)
   MF.curClub = (p) => {
-    if (p.retired || !p.st || !p.st.length) return null;
+    if (p.retired || p.stop || !p.st || !p.st.length) return null;
     let best = null;
     for (const s of p.st) if (!best || s[2] > best[2] || (s[2] === best[2] && s[1] > best[1])) best = s;
     return best && best[2] >= 2025 ? best[0] : null;
@@ -75,19 +111,37 @@
   MF.mediatic = (p) => p.r >= 86 || p.bo || p.bow || p.icon;
   // conhecido: nota 83+ ou marcado como famoso/lenda/top 10 da Bola de Ouro com nota 80+
   MF.known = (p) => p.r >= 83 || ((p.famous || p.legend || p.bo) && p.r >= 80);
+  // (21/10/2026) joga hoje num clube conhecido (faixas) — base do Normal e do Difícil
+  MF.inTier = (p) => { const c = MF.curClub(p); return c != null && tiers().play.has(c); };
+  MF.known2 = (p) => p.r >= 84 || ((p.famous || p.legend || p.bo) && p.r >= 83);
+  // lenda que parou de 2010 para cá (o Difícil não pede lenda dos anos 90)
+  MF.recentLegend = (p) => p.retired && p.lastY >= 2010 && (((p.legend || p.icon || p.bo || p.wc) && p.r >= 83) || p.r >= 87);
+  // em atividade: tem clube agora (aposentado, falecido ou sem clube não conta)
+  MF.active = (p) => !p.retired && !p.stop && (MF.curClub(p) != null || sets().now.has(p.i));
   // lenda aposentada de 1990 a 2026 (nada de nome perdido: lenda da curadoria, ícone, Bola de Ouro, campeão do mundo ou nota 84+)
   MF.retLegend = (p) => p.retired && p.lastY >= 1990 && (((p.legend || p.wc) && p.r >= 80) || p.icon || p.bo || p.r >= 84);
   // óbvio demais para ser a resposta no Difícil
   MF.obvious = (p) => p.bow || p.r >= 92 || ['lionel messi', 'cristiano ronaldo'].includes(p.key);
 
   /** jogador aceito no nível. opt.answer = é a resposta do desafio (no Difícil tira os óbvios) */
+  MF.REV = 9; // MF.today() de 21/10/2026 (desafio nº 10): a revisão vale já hoje, a pedido do usuário
+  MF.isRev = () => MF.today() >= MF.REV;
   MF.playerOk = (lvl, p, opt) => {
     if (!p || p.ext) return lvl === 'legend';
+    if (opt && opt.answer && MF.isCanon && !MF.isCanon(p)) return false; // ficha repetida não vira resposta
     if (lvl === 'easy') return MF.mediatic(p);
-    if (lvl === 'normal') return MF.known(p) && MF.inMain(p);
+    if (!MF.isRev()) {
+      if (lvl === 'normal') return MF.known(p) && MF.inMain(p);
+      if (lvl === 'hard') {
+        if (opt && opt.answer && MF.obvious(p)) return false;
+        return (MF.inMain(p) && p.r >= 79) || MF.retLegend(p);
+      }
+      return true;
+    }
+    if (lvl === 'normal') return MF.known2(p) && (MF.inTier(p) || (p.r >= 87 && MF.curClub(p) != null));
     if (lvl === 'hard') {
       if (opt && opt.answer && MF.obvious(p)) return false;
-      return (MF.inMain(p) && p.r >= 79) || MF.retLegend(p);
+      return (MF.inTier(p) && p.r >= 80) || (MF.inMain(p) && p.r >= 84) || MF.recentLegend(p);
     }
     return true;
   };

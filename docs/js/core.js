@@ -151,6 +151,9 @@
   // versão do estado do dia por jogo: mudar a versão zera o progresso do dia só daquele jogo
   // (16/10/2026: Modo impostor e Jogou por onde? mudaram no meio do dia, a pedido do usuário)
   MF.STATE_VER = { 'modo-impostor': '#6', 'jogou-por-onde': '#2', 'desafio-do-elenco': '#2' }; // #2: revelação gradual (18/10/2026)
+  // 21/10/2026: revisão de Normal e Difícil vale já no desafio nº 10 (pedido do usuário); o progresso do dia desses jogos recomeça
+  for (const g of ['quem-e-craque', 'lista-ballon-dor', 'craque-secreto', 'descubra-o-card', 'futebol-grid', 'piramide-do-atleta', 'desafio-do-elenco', 'modo-impostor', 'jogo-da-distancia'])
+    MF.STATE_VER[g] = (MF.STATE_VER[g] || '') + '#r21';
   const gk = (game) => game + (MF.STATE_VER[game] || '');
   MF.dayState = (game, lvl) => MF.load('d3:' + gk(game) + ':' + (lvl || 'normal') + ':' + MF.today(), null);
   MF.saveDayState = (game, st) => MF.save('d3:' + gk(game) + ':' + ((st && st.opts && st.opts.mode) || 'normal') + ':' + MF.today(), st);
@@ -221,7 +224,27 @@
         const main = g.slice().sort((a, b) => b.st.length - a.st.length || b.r - a.r)[0];
         for (const p of g) MF.canon[p.i] = main.i;
       }
+      // (21/10/2026) ficha sem ID do Transfermarkt que repete um jogador que tem ID (ex.: "Philip Foden" × "Phil Foden",
+      // "Bamidele Alli" × "Dele Alli"): mesma seleção, nascimento e sobrenome, mesma inicial e passagem em comum no mesmo clube
+      const last = (p) => MF.norm(p.fn || p.n).split(' ').pop();
+      const g2 = new Map();
+      for (const p of P) {
+        if (!p.st.length || !p.born || MF.canon[p.i] !== p.i) continue;
+        const k = p.nat + '|' + p.born + '|' + last(p);
+        (g2.get(k) || g2.set(k, []).get(k)).push(p);
+      }
+      const overlap = (a, b) => a.st.some((s) => b.st.some((t) => t[0] === s[0] && t[1] <= s[2] && s[1] <= t[2]));
+      for (const g of g2.values()) {
+        if (g.length < 2) continue;
+        for (const a of g) {
+          if (a.tm) continue;
+          const b = g.filter((x) => x !== a && x.tm && (x.key[0] === a.key[0] || x.keys.some((k) => a.keys.includes(k)) || x.alias.some((n) => MF.norm(n) === a.key)) && overlap(a, x)).sort((x, y) => y.r - x.r)[0];
+          if (b) MF.canon[a.i] = b.i;
+        }
+      }
     }
+    // ficha principal (as repetidas não viram resposta do dia)
+    MF.isCanon = (p) => !MF.canon || MF.canon[p.i] === undefined || MF.canon[p.i] === p.i;
     // títulos extras (Libertadores pelo clube/ano, Eurocopa pelos elencos campeões)
     const TR = MF.TROPHIES || {};
     for (const p of P) { p.lib = !!(TR.lib && TR.lib[p.i]); p.euro = !!(TR.euro && TR.euro[p.i]); }
@@ -240,7 +263,7 @@
     : {
       i, n: r[0], alias: r[1], fn: r[2], nat: r[3], born: r[4], pos: r[5], allpos: r[6].split('/'),
       r: r[7], st: r[8], legend: !!(r[9] & 1), famous: !!(r[9] & 2), bo: !!(r[9] & 4), bow: !!(r[9] & 8), wc: !!(r[9] & 16),
-      retired: !!(r[9] & 32), natGuess: !!(r[9] & 64), icon: !!(r[9] & 128), h: r[10], foot: r[11], caps: r[13] || 0, ng: r[14] || 0, mv: r[15] || 0, tm: r[16] || 0, fee: r[17] || 0, ext: false,
+      retired: !!(r[9] & 32), natGuess: !!(r[9] & 64), icon: !!(r[9] & 128), stop: !!(r[9] & 256), h: r[10], foot: r[11], caps: r[13] || 0, ng: r[14] || 0, mv: r[15] || 0, tm: r[16] || 0, fee: r[17] || 0, ext: false,
     };
   MF._derive = (p, clubs) => {
     p.clubs = [...new Set(p.st.map((s) => s[0]))];

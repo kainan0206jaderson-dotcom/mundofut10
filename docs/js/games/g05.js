@@ -8,10 +8,20 @@
   const EASY_NATS = ['Brazil', 'Argentina', 'France', 'Spain', 'Germany', 'England', 'Portugal', 'Italy', 'Netherlands', 'Belgium'];
   // faixa de clubes (pelo ranking de jogadores na base), mínimo por seleção e mínimo de respostas por casa
 const LEVEL = { easy: [0, 25, 0, 6], normal: [0, 80, 60, 3], hard: [40, 260, 25, 2], legend: [120, 700, 10, 1] };
+  // revisão de 21/10/2026 (como o Futbol11, cujo Difícil só usa clubes gigantes): Normal = clubes famosos e grandes conhecidos
+  // e as seleções mais fortes, 6+ respostas por casa; Difícil = linhas com clubes conhecidos, colunas com clubes tradicionais
+  // da 1ª divisão ou seleções conhecidas, 4+ respostas por casa
+  const REV_NATS = {
+    normal: ['Italy', 'Spain', 'France', 'Germany', 'England', 'Brazil', 'Argentina', 'Portugal', 'Netherlands', 'Belgium', 'Uruguay', 'Croatia'],
+    hard: ['Senegal', 'Morocco', "Côte d'Ivoire", 'Serbia', 'Scotland', 'Nigeria', 'Denmark', 'Cameroon', 'Turkey', 'United States', 'Poland',
+      'Switzerland', 'Colombia', 'Ghana', 'Algeria', 'Wales', 'Sweden', 'Czech Republic', 'Mexico', 'Norway', 'Japan', 'Austria', 'Greece', 'Republic of Ireland'],
+  };
+  const REV_MIN = { normal: 6, hard: 4 };
 
   MF.criteria = (mode) => {
     const NEW = MF.isNew() && mode !== 'legend';
-    const key = 'crit:' + mode + (NEW ? ':n' : '');
+    const REV = NEW && MF.isRev() && (mode === 'normal' || mode === 'hard');
+    const key = 'crit:' + mode + (NEW ? ':n' : '') + (REV ? ':r' : '');
     MF._crit = MF._crit || {};
     if (MF._crit[key]) return MF._crit[key];
     const { P, clubs } = MF.data;
@@ -23,8 +33,16 @@ const LEVEL = { easy: [0, 25, 0, 6], normal: [0, 80, 60, 3], hard: [40, 260, 25,
       for (const c of p.clubs) byClub[c].push(p.i);
     }
     const [c0, c1, mn] = LEVEL[mode] || LEVEL.normal;
-    let cl, na;
-    if (NEW) {
+    let cl, na, rw;
+    const crit = (i) => ({ type: 'club', id: i, label: clubs[i].n, set: new Set(byClub[i]) });
+    if (REV) {
+      const tier = MF.tierSet(mode);
+      cl = [...tier].filter((i) => clubs[i] && byClub[i].length >= (mode === 'normal' ? 25 : 15)).map(crit);
+      const rowT = MF.tierSet('normal');
+      rw = cl.filter((c) => rowT.has(c.id));
+      const nl = mode === 'normal' ? REV_NATS.normal : REV_NATS.normal.concat(REV_NATS.hard);
+      na = nl.filter((n) => byNat.has(n)).map((n) => ({ type: 'nat', id: n, label: n, set: new Set(byNat.get(n)) }));
+    } else if (NEW) {
       // a partir de 16/10/2026 — Fácil: clubes famosos; Normal: + campeões da Champions; Difícil: campeões da Champions e da
       // Europa League e clubes da 1ª divisão em 2026/27
       const set = MF.clubSet(mode);
@@ -39,7 +57,7 @@ const LEVEL = { easy: [0, 25, 0, 6], normal: [0, 80, 60, 3], hard: [40, 260, 25,
       cl = rank.map((i) => ({ type: 'club', id: i, label: clubs[i].n, set: new Set(byClub[i]) }));
       na = [...byNat.entries()].filter(([, v]) => v.length >= mn).map(([n, v]) => ({ type: 'nat', id: n, label: n, set: new Set(v) }));
     }
-    return (MF._crit[key] = { cl, na });
+    return (MF._crit[key] = { cl, na, rw: rw || cl, min: REV ? REV_MIN[mode] : null });
   };
   const inter = (a, b) => { let n = 0; const [s, l] = a.size < b.size ? [a, b] : [b, a]; for (const x of s) if (l.has(x)) n++; return n; };
   MF.critLabel = (c, size) => c.type === 'club'
@@ -47,11 +65,11 @@ const LEVEL = { easy: [0, 25, 0, 6], normal: [0, 80, 60, 3], hard: [40, 260, 25,
     : h('span', { class: 'crit' }, MF.flag(c.id, 'lg'), h('span', null, MF.country(c.id)));
 
   function buildGrid(mode, seedNo) {
-    const { cl, na } = MF.criteria(mode);
-    const minCell = (LEVEL[mode] || LEVEL.normal)[3];
-    const rnd = MF.rng('grid:' + mode + ':' + seedNo);
+    const { cl, na, rw, min } = MF.criteria(mode);
+    const minCell = min || (LEVEL[mode] || LEVEL.normal)[3];
+    const rnd = MF.rng('grid:' + mode + ':' + seedNo + (min ? ':r' : ''));
     for (let tries = 0; tries < 600; tries++) {
-      const rows = MF.sample(cl, 3, rnd);
+      const rows = MF.sample(rw, 3, rnd);
       // colunas possíveis: critérios com interseção suficiente com as três linhas
       const okCol = (c) => !rows.includes(c) && rows.every((r) => inter(r.set, c.set) >= minCell);
       const nats = na.filter(okCol), cls = cl.filter(okCol);
@@ -66,9 +84,9 @@ const LEVEL = { easy: [0, 25, 0, 6], normal: [0, 80, 60, 3], hard: [40, 260, 25,
   MF.registerGame({
     num: 5, slug: 'futebol-grid',
     rules: {
-      pt: ['Preencha as 9 casas com jogadores que passaram pelo clube da linha e pelo clube ou seleção da coluna.', 'Se o jogador servir em mais de uma casa livre, você escolhe onde colocar; se servir em só uma, ele entra direto.', 'Vale qualquer jogador que atuou de 1990 para cá, da ativa ou aposentado (base completa do Transfermarkt). Palpites livres; cada jogador só entra uma vez. Complete o grid ou toque em Desistir.', 'Ajuda: uma vez por partida, mostra as iniciais de uma resposta na casa mais difícil.', 'Dificuldade — Fácil: só clubes famosos (gigantes da Europa e do Brasil) e grandes seleções, com muitas respostas por casa. Normal: os famosos e os campeões da Champions. Difícil: campeões da Champions e da Europa League e clubes da 1ª divisão, com poucas respostas por casa. Lendário: qualquer clube ou seleção, e casas que podem ter uma única resposta.'],
-      en: ['Fill the 9 squares with players who played for the row club and for the column club or nation.', 'If a player fits more than one open square, you choose; if he fits only one, he goes straight in.', 'Any player active from 1990 on counts, current or retired (full Transfermarkt database). Unlimited guesses; each player can be used once. Complete the grid or tap Give up.', 'Help: once per game, shows the initials of an answer in the hardest square.', 'Difficulty — Easy: only famous clubs (European and Brazilian giants) and big nations, with many answers per square. Normal: the famous ones plus Champions League winners. Hard: Champions League and Europa League winners and top-flight clubs, with few answers per square. Legendary: any club or nation, and squares that may have a single answer.'],
-      es: ['Rellena las 9 casillas con jugadores que pasaron por el club de la fila y por el club o selección de la columna.', 'Si un jugador sirve en más de una casilla libre, eliges dónde; si solo sirve en una, entra directo.', 'Vale cualquier jugador que jugó de 1990 en adelante, en activo o retirado (base completa de Transfermarkt). Intentos libres; cada jugador entra una sola vez. Completa la cuadrícula o toca Rendirse.', 'Ayuda: una vez por partida, muestra las iniciales de una respuesta en la casilla más difícil.', 'Dificultad — Fácil: solo clubes famosos (gigantes de Europa y Brasil) y grandes selecciones, con muchas respuestas por casilla. Normal: los famosos y los campeones de la Champions. Difícil: campeones de la Champions y la Europa League y clubes de primera división, con pocas respuestas por casilla. Legendario: cualquier club o selección, y casillas que pueden tener una sola respuesta.'],
+      pt: ['Preencha as 9 casas com jogadores que passaram pelo clube da linha e pelo clube ou seleção da coluna.', 'Se o jogador servir em mais de uma casa livre, você escolhe onde colocar; se servir em só uma, ele entra direto.', 'Vale qualquer jogador que atuou de 1990 para cá, da ativa ou aposentado (base completa do Transfermarkt). Palpites livres; cada jogador só entra uma vez. Complete o grid ou toque em Desistir.', 'Ajuda: uma vez por partida, mostra as iniciais de uma resposta na casa mais difícil.', 'Dificuldade — Fácil: só clubes famosos (gigantes da Europa e do Brasil) e grandes seleções, com muitas respostas por casa. Normal: clubes famosos e grandes conhecidos (Marseille, PSV, Sevilla, Lazio, Grêmio…) e as seleções mais fortes, com 6+ respostas por casa. Difícil: linhas com clubes conhecidos e colunas com clubes tradicionais da 1ª divisão (Fiorentina, Everton, Betis…) ou seleções conhecidas, com 4+ respostas por casa. Lendário: qualquer clube ou seleção, e casas que podem ter uma única resposta.'],
+      en: ['Fill the 9 squares with players who played for the row club and for the column club or nation.', 'If a player fits more than one open square, you choose; if he fits only one, he goes straight in.', 'Any player active from 1990 on counts, current or retired (full Transfermarkt database). Unlimited guesses; each player can be used once. Complete the grid or tap Give up.', 'Help: once per game, shows the initials of an answer in the hardest square.', 'Difficulty — Easy: only famous clubs (European and Brazilian giants) and big nations, with many answers per square. Normal: famous and well-known big clubs (Marseille, PSV, Sevilla, Lazio, Grêmio…) and the strongest nations, 6+ answers per square. Hard: well-known clubs in the rows and traditional top-flight clubs (Fiorentina, Everton, Betis…) or well-known nations in the columns, 4+ answers per square. Legendary: any club or nation, and squares that may have a single answer.'],
+      es: ['Rellena las 9 casillas con jugadores que pasaron por el club de la fila y por el club o selección de la columna.', 'Si un jugador sirve en más de una casilla libre, eliges dónde; si solo sirve en una, entra directo.', 'Vale cualquier jugador que jugó de 1990 en adelante, en activo o retirado (base completa de Transfermarkt). Intentos libres; cada jugador entra una sola vez. Completa la cuadrícula o toca Rendirse.', 'Ayuda: una vez por partida, muestra las iniciales de una respuesta en la casilla más difícil.', 'Dificultad — Fácil: solo clubes famosos (gigantes de Europa y Brasil) y grandes selecciones, con muchas respuestas por casilla. Normal: clubes famosos y grandes conocidos (Marsella, PSV, Sevilla, Lazio, Grêmio…) y las selecciones más fuertes, con 6+ respuestas por casilla. Difícil: filas con clubes conocidos y columnas con clubes tradicionales de primera (Fiorentina, Everton, Betis…) o selecciones conocidas, con 4+ respuestas por casilla. Legendario: cualquier club o selección, y casillas que pueden tener una sola respuesta.'],
     },
     options: [
       MF.levelOpt(),
@@ -86,6 +104,7 @@ const LEVEL = { easy: [0, 25, 0, 6], normal: [0, 80, 60, 3], hard: [40, 260, 25,
       for (let k = 1; !grid && k < 20; k++) grid = buildGrid(mode, no + '-' + k);
       if (!grid) grid = buildGrid('easy', no);
       const { rows, cols } = grid;
+      MF._gridLast = grid; // (testes)
       st.cells = st.cells || Array(9).fill(null);
       st.n = st.n || 0;
       const MAX = 12;
