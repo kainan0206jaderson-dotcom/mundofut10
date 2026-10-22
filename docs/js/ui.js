@@ -227,6 +227,25 @@
   };
 
   // ------------------------------------------------------------------ controles segmentados
+  // ------------------------------------------------------------------ bolinhas de dificuldade (22/10/2026)
+  // uma bolinha por nível, na cor do nível (branco Fácil, cinza Normal, vermelho Difícil, laranja Lendário);
+  // o estado do dia muda a FORMA: anel apagado = não jogou, ponto no meio = em andamento, cheia com ✓ = venceu, anel com ✕ = perdeu
+  const DOT_SVG = {
+    new: '<circle cx="7" cy="7" r="5.6" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+    playing: '<circle cx="7" cy="7" r="5.6" fill="none" stroke="currentColor" stroke-width="1.6"/><circle class="lv-core" cx="7" cy="7" r="2.3" fill="currentColor"/>',
+    won: '<circle cx="7" cy="7" r="6.4" fill="currentColor"/><path d="M4.1 7.3 6.1 9.2 9.9 5.1" fill="none" stroke="var(--lv-ink)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+    solid: '<circle cx="7" cy="7" r="6" fill="currentColor"/>',
+    lost: '<circle cx="7" cy="7" r="5.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 5 9 9M9 5 5 9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  };
+  MF.levelName = (l) => MF.t(l === 'legend' ? 'legendary' : l);
+  MF.levelStateText = (s) => MF.t(s === 'won' ? 'lvWon' : s === 'lost' ? 'lvLost' : s === 'playing' ? 'lvPlaying' : 'lvNew');
+  MF.levelDot = (level, status, extra) => {
+    const st = DOT_SVG[status] ? status : 'new';
+    const s = MF.h('span', { class: 'lv-dot lv-' + level + ' is-' + st + (extra ? ' ' + extra : ''), 'aria-hidden': 'true' });
+    s.innerHTML = '<svg viewBox="0 0 14 14" focusable="false">' + DOT_SVG[st] + '</svg>';
+    return s;
+  };
+
   MF.segmented = (label, choices, value, onChange) => {
     const group = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': label });
     const render = () => {
@@ -236,7 +255,9 @@
           type: 'button', role: 'radio', 'aria-checked': c.v === value ? 'true' : 'false', class: (c.v === value ? 'on' : '') + (c.mark ? ' done-' + c.mark : ''),
           disabled: c.disabled, title: c.disabled ? t('levelDone') : null,
           onclick: () => { if (c.disabled) return; value = c.v; render(); onChange(c.v); },
-        }, c.mark ? h('span', { class: 'seg-mark', 'aria-hidden': 'true' }, c.mark === 'won' ? '✓' : '✗') : null, c.label));
+          'aria-label': c.lv && c.mark ? c.label + ' · ' + MF.levelStateText(c.mark) : null,
+        }, c.lv ? MF.levelDot(c.lv, c.mark || 'new', 'seg-dot')
+          : c.mark ? h('span', { class: 'seg-mark', 'aria-hidden': 'true' }, c.mark === 'won' ? '✓' : '✗') : null, c.label));
       }
     };
     render();

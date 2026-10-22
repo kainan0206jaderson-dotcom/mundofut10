@@ -188,6 +188,33 @@
   // ------------------------------------------------------------------ página inicial
   function gameStatus(g) { return MF.dayStatus(g.slug); } // new | playing | won | lost
   const statusText = (s) => t(s === 'won' ? 'statusWon' : s === 'lost' ? 'statusLost' : s === 'playing' ? 'playing' : 'play');
+  // bolinhas de dificuldade do card: uma por nível, com o resultado do dia (22/10/2026)
+  // MF._dotSeen guarda o último estado mostrado; a bolinha que mudou desde a última vez entra com animação
+  function levelDots(g) {
+    const st = MF.dayStates(g.slug);
+    const seen = MF._dotSeen || (MF._dotSeen = {});
+    const day = MF.today();
+    const label = MF.LEVELS.map((l) => MF.levelName(l) + ': ' + MF.levelStateText(st[l] && st[l].status)).join(' · ');
+    const wrap = h('span', { class: 'lv-dots', role: 'img', 'aria-label': t('lvDots') + ' — ' + label, title: label });
+    MF.LEVELS.forEach((l, i) => {
+      const status = (st[l] && st[l].status) || 'new';
+      const key = day + ':' + g.slug + ':' + l;
+      const fresh = key in seen && seen[key] !== status && status !== 'new';
+      seen[key] = status;
+      const dot = MF.levelDot(l, status, fresh ? 'is-fresh' : '');
+      if (fresh) dot.style.setProperty('--k', i);
+      wrap.appendChild(dot);
+    });
+    return wrap;
+  }
+  function levelLegend() {
+    return h('div', { class: 'lvl-key', 'aria-hidden': 'true' },
+      h('span', { class: 'lvl-key-g' }, MF.LEVELS.map((l) => h('span', { class: 'lvl-key-i' }, MF.levelDot(l, 'solid'), MF.levelName(l)))),
+      h('span', { class: 'lvl-key-g lvl-key-st' },
+        h('span', { class: 'lvl-key-i' }, MF.levelDot('key', 'won'), t('lvWon')),
+        h('span', { class: 'lvl-key-i' }, MF.levelDot('key', 'lost'), t('lvLost')),
+        h('span', { class: 'lvl-key-i' }, MF.levelDot('key', 'new'), t('lvNew'))));
+  }
   function home() {
     if (MF.Stadium && MF.Stadium.init && MF.Stadium.init()) return home3d();
     return home2d();
@@ -225,7 +252,7 @@
           h('span', { class: 'sheet-name' }, name),
           h('span', { class: 'sheet-desc' }, desc),
           MF.ruleTag(g)),
-        h('span', { class: 'chip chip-' + status }, statusText(status)),
+        h('span', { class: 'sheet-act' }, h('span', { class: 'chip chip-' + status }, statusText(status)), levelDots(g)),
         s.streak > 1 ? h('span', { class: 'streak', title: t('streak') }, '🔥' + s.streak) : null)));
     });
 
@@ -239,7 +266,7 @@
           h('span', { class: 'progress-txt' }, done + '/11 ' + t('doneToday'))),
 scoreboard(),
         done === 11 ? h('p', { class: 'all-done' }, t('allDone')) : null),
-      h('div', { class: 'home-grid' }, h('div', { class: 'pitch-wrap' }, pitch), sheet)));
+      h('div', { class: 'home-grid' }, h('div', { class: 'pitch-wrap' }, pitch), h('div', { class: 'sheet-col' }, levelLegend(), sheet))));
     root.appendChild(footer());
     document.title = 'MUNDOFUT10';
     if (!MF._played && !MF._introRunning) { pitch.classList.add('enter'); MF._played = true; }
@@ -258,7 +285,7 @@ scoreboard(),
           h('span', { class: 'sheet-name' }, name),
           h('span', { class: 'sheet-desc' }, desc),
           MF.ruleTag(g)),
-        h('span', { class: 'chip chip-' + status }, statusText(status)),
+        h('span', { class: 'sheet-act' }, h('span', { class: 'chip chip-' + status }, statusText(status)), levelDots(g)),
         s.streak > 1 ? h('span', { class: 'streak', title: t('streak') }, '🔥' + s.streak) : null)));
     });
     return sheet;
@@ -292,7 +319,7 @@ scoreboard()),
     const fog = h('div', { class: 'cloud-fog', 'aria-hidden': 'true' });
     const skip = h('button', { class: 'cam-skip', type: 'button', hidden: true, onclick: () => S.skipIntro() }, t('skipIntro'));
     const stage = h('section', { class: 'stage3d' }, fog, layer, ui, skip);
-    const panel = h('aside', { class: 'sheet-panel', 'aria-label': t('lineup') }, h('h2', { class: 'panel-title' }, t('todayGames')), sheetList());
+    const panel = h('aside', { class: 'sheet-panel', 'aria-label': t('lineup') }, h('h2', { class: 'panel-title' }, t('todayGames')), levelLegend(), sheetList());
     const main = h('main', { class: 'home3d' }, stage, panel);
     root.appendChild(main);
     root.appendChild(footer());
@@ -413,7 +440,8 @@ scoreboard()),
           h('span', { class: 'seg-label' }, t('playedToday')),
           h('div', { class: 'played-chips' }, playedList.map(([l, s]) => h('button', {
             type: 'button', class: 'chip chip-' + s.status, onclick: () => runGame(g, stage, s), title: t('seeResult'),
-          }, (s.status === 'won' ? '✓ ' : '✗ ') + t(l === 'legend' ? 'legendary' : l))))) : null,
+            'aria-label': MF.levelName(l) + ' · ' + MF.levelStateText(s.status),
+          }, MF.levelDot(l, s.status), MF.levelName(l))))) : null,
         allDone ? h('p', { class: 'all-levels' }, t('allLevelsDone')) : h('div', { class: 'controls' }, controls),
         allDone ? null : h('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: () => {
           if (MF.dayState(g.slug, opts.mode || 'normal')) return MF.toast(t('levelDone'));
@@ -504,7 +532,7 @@ scoreboard()),
   MF.ruleTag = (g) => h('span', { class: 'rule-tag' + (g.chances || g.tag ? ' limited' : '') }, g.tag ? g.tag() : g.chances ? t('nChances').replace('{n}', g.chances) : t('freeAnswers'));
   MF.levelOpt = () => ({
     key: 'mode', label: () => t('mode'), def: 'normal',
-    choices: () => [{ v: 'easy', label: t('easy') }, { v: 'normal', label: t('normal') }, { v: 'hard', label: t('hard') }, { v: 'legend', label: t('legendary') }],
+    choices: () => [{ v: 'easy', label: t('easy') }, { v: 'normal', label: t('normal') }, { v: 'hard', label: t('hard') }, { v: 'legend', label: t('legendary') }].map((c) => Object.assign(c, { lv: c.v })),
   });
   MF.level = (st) => (MF.LEVELS.includes(st.opts.mode) ? st.opts.mode : 'normal');
 
